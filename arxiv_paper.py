@@ -10,12 +10,6 @@ class ArxivPaper:
     abstract: str
     link: str
 
-    def __next__(self):
-        return self
-
-    def __iter__(self):
-        return self
-
     # 'forward reference' : -> "ArxivPaper"
     @classmethod
     def from_query(cls, entry: dict) -> "ArxivPaper":
@@ -33,18 +27,6 @@ class ArxivPaper:
             abstract,
             link,
         )
-
-    def get_metadata(self) -> Dict[str, Optional[str]]:
-        """
-        THIS DOES NOT NEED TO EXIST :D
-        Return the metadata of the paper.
-        """
-        return {
-            "pid": self.pid,
-            "title": self.title,
-            "authors": self.authors,
-            "abstract": self.abstract,
-        }
 
     def has_github_link(self) -> bool:
         """
