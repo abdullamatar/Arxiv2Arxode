@@ -1,65 +1,54 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict
 from dataclasses import dataclass
 
 
 @dataclass
 class ArxivPaper:
-    id: str
+    pid: str
     title: str
-    published: str
     authors: List[str]
     abstract: str
-    links: List[dict]
-    journal_ref: Optional[str]
-    comment: Optional[str]
+    link: str
 
-    @classmethod
+    def __next__(self):
+        return self
+
+    def __iter__(self):
+        return self
+
     # 'forward reference' : -> "ArxivPaper"
-    def from_entry(cls, entry: dict) -> "ArxivPaper":
-        paper_id = entry.id.split("/abs/")[-1]
+    @classmethod
+    def from_query(cls, entry: dict) -> "ArxivPaper":
+        """Creates an ArxivPaper object from given entry(s)."""
+        pid = entry.entry_id.split("/")[-1]
         title = entry.title
-        published = entry.published
-        authors = [author.name for author in entry.contributors]
+        authors = entry.Author
         abstract = entry.summary
-        links = entry.links
-        journal_ref = getattr(entry, "arxiv_journal_ref", None)
-        comment = getattr(entry, "arxiv_comment", None)
-
+        link = entry.pdf_url
+        # print(f"entry.pdf_url: {entry.pdf_url}")
         return cls(
-            paper_id, title, published, authors, abstract, links, journal_ref, comment
+            pid,
+            title,
+            authors,
+            abstract,
+            link,
         )
 
     def get_metadata(self) -> Dict[str, Optional[str]]:
         """
+        THIS DOES NOT NEED TO EXIST :D
         Return the metadata of the paper.
-
-        :return: Dictionary containing paper metadata.
         """
         return {
-            "id": self.id,
+            "pid": self.pid,
             "title": self.title,
-            "published": self.published,
             "authors": self.authors,
             "abstract": self.abstract,
-            "journal_ref": self.journal_ref,
-            "comment": self.comment,
         }
-
-    def download(self) -> None:
-        """
-        Download the PDF of the paper.
-        """
-        pdf_link: Optional[str] = next(
-            (link["href"] for link in self.links if link["title"] == "pdf"), None
-        )
-        if pdf_link:
-            pass
 
     def has_github_link(self) -> bool:
         """
-        Check if the paper mentions a GitHub repo.
-
-        :return: True if a GitHub link is found, otherwise False.
+        Simple check if the paper mentions a GitHub repo in abstract
         """
-        github_terms: List[str] = ["github.com", "github.io"]
+        github_terms = ["github.com", "github.io"]
         return any(term in self.abstract.lower() for term in github_terms)
