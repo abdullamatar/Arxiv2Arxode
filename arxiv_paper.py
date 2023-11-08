@@ -1,5 +1,18 @@
-from typing import List, Optional, Dict
+from typing import List
 from dataclasses import dataclass
+import re
+from logging import getLogger
+import logging
+import sys
+
+logger = getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+logger.addHandler(handler)
+# handler.setLevel(logging.INFO)
+
+GITHUB_URL_PATTERN = r"https?://github\.com/[a-zA-Z0-9\-_]+/[a-zA-Z0-9\-_]+"
+GENERAL_URL_PATTERN = r"https?://[a-zA-Z0-9\.-]+\.[a-zA-Z]{2,}(?:/[a-zA-Z0-9\-_]+)*"
 
 
 @dataclass
@@ -13,7 +26,7 @@ class ArxivPaper:
     # 'forward reference' : -> "ArxivPaper"
     @classmethod
     def from_query(cls, entry: dict) -> "ArxivPaper":
-        """Creates an ArxivPaper object from given entry(s)."""
+        """Creates an ArxivPaper object from given entry(s) returned by arxiv api query."""
         pid = entry.entry_id.split("/")[-1]
         title = entry.title
         authors = entry.Author
@@ -28,9 +41,31 @@ class ArxivPaper:
             link,
         )
 
-    def has_github_link(self) -> bool:
+    def extract_github_links(self) -> List[str]:
         """
-        Simple check if the paper mentions a GitHub repo in abstract
+        Extract GitHub URLs from the paper's abstract.
         """
-        github_terms = ["github.com", "github.io"]
-        return any(term in self.abstract.lower() for term in github_terms)
+        github_urls = []
+        # A basic regular expression to match GitHub URLs
+
+        # for match in re.findall(GITHUB_URL_PATTERN, self.abstract):
+        #     github_urls.append(match)
+        # other_urls = [
+        #     re.findall(GENERAL_URL_PATTERN, self.abstract) if not github_urls else None
+        # ]
+        github_urls = re.findall(GITHUB_URL_PATTERN, self.abstract)
+        all_urls = re.findall(GENERAL_URL_PATTERN, self.abstract)
+        other_urls = [url for url in all_urls if url not in github_urls]
+
+        if not github_urls and not other_urls:
+            logger.info(
+                f"No relevant URLs found in the following papers abstract: {self.title.strip()}"
+            )
+        else:
+            logger.info(
+                f"Paper '{self.title.strip()}':\n"
+                f"GitHub URL(s): {', '.join(github_urls)}\n"
+                f"Other URL(s): {', '.join(other_urls)}"
+            )
+
+        return github_urls

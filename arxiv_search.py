@@ -54,7 +54,7 @@ class ArxivScraper:
         )
         return [ArxivPaper.from_query(entry) for entry in self.client.results(search)]
 
-    def download_paper(
+    def download_papers(
         self,
         papers: List[ArxivPaper],
         fname_template: str = "{title}.pdf",
@@ -68,9 +68,9 @@ class ArxivScraper:
         for paper in papers:
             piter = arxiv.Search(id_list=[paper.pid]).results()
             next(piter).download_pdf(
-                dirpath=dirpath, filename=fname_template.format(title=paper.title)
+                dirpath=dirpath,
+                filename=fname_template.format(title=paper.title.replace(" ", "_")),
             )
-            break
 
 
 #########################################################################################
