@@ -1,0 +1,3 @@
+Here is the current task description: {curr_task_description}
+Along with a summary of the state of the task: {task_state}
+Use the following relevant information to progress the task: {working_memory}

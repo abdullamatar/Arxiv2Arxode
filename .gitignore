@@ -1,8 +1,10 @@
 # ヾ(⌐■_■)ノ♪
 __pycache__
-/temp
+*temp*/**
+*temp*
 *back*
 *.pdf
 *.xml
 *.env
+.cache
 .mypy_cache

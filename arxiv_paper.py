@@ -1,14 +1,15 @@
-from typing import List
-from dataclasses import dataclass
-import re
-from logging import getLogger
 import logging
-import sys
+import re
+from dataclasses import dataclass
+from logging import getLogger
+from typing import List
+
+# import sys
 
 logger = getLogger(__name__)
 logger.setLevel(logging.INFO)
-handler = logging.StreamHandler(sys.stdout)
-logger.addHandler(handler)
+# handler = logging.StreamHandler(sys.stdout)
+# logger.addHandler(handler)
 # handler.setLevel(logging.INFO)
 
 GITHUB_URL_PATTERN = r"https?://github\.com/[a-zA-Z0-9\-_]+/[a-zA-Z0-9\-_]+"
@@ -46,8 +47,6 @@ class ArxivPaper:
         Extract GitHub URLs from the paper's abstract.
         """
         github_urls = []
-        # A basic regular expression to match GitHub URLs
-
         # for match in re.findall(GITHUB_URL_PATTERN, self.abstract):
         #     github_urls.append(match)
         # other_urls = [
@@ -55,17 +54,18 @@ class ArxivPaper:
         # ]
         github_urls = re.findall(GITHUB_URL_PATTERN, self.abstract)
         all_urls = re.findall(GENERAL_URL_PATTERN, self.abstract)
-        other_urls = [url for url in all_urls if url not in github_urls]
+        # other_urls = [url for url in all_urls if url not in github_urls]
 
-        if not github_urls and not other_urls:
-            logger.info(
-                f"No relevant URLs found in the following papers abstract: {self.title.strip()}"
-            )
-        else:
+        if github_urls or all_urls:
             logger.info(
                 f"Paper '{self.title.strip()}':\n"
                 f"GitHub URL(s): {', '.join(github_urls)}\n"
-                f"Other URL(s): {', '.join(other_urls)}"
+                f"Other URL(s): {', '.join(all_urls)}"
             )
-
-        return github_urls
+        else:
+            logger.info(
+                f"No relevant URLs found in the following papers abstract: {self.title.strip()}"
+            )
+        x = list(set(github_urls + all_urls))
+        x = [url for url in x if url]
+        return x

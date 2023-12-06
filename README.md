@@ -1,3 +1,3 @@
 # The most essential and informative readme
 
-## This software uses the arxiv api to search (ㆆ_ㆆ)
+## This repo hosts the development of my undergraduate research project.

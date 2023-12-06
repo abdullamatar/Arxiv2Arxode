@@ -1,7 +1,9 @@
-from feedparser.mixin import _FeedParserMixin
-import arxiv
 from pathlib import Path
 from typing import List, Optional
+
+import arxiv
+from feedparser.mixin import _FeedParserMixin
+
 from arxiv_paper import ArxivPaper
 
 # import urllib.request, urllib.parse, urllib.error
@@ -20,8 +22,8 @@ It is lightweight, and human readable, and results can be cleanly read in many w
 # Some entry metadata lives in the arXiv namespace.
 # This is a hack to expose both of these namespaces in
 # feedparser v4.1
-_FeedParserMixin.namespaces["http://a9.com/-/spec/opensearch/1.1/"] = "opensearch"
-_FeedParserMixin.namespaces["http://arxiv.org/schemas/atom"] = "arxiv"
+# _FeedParserMixin.namespaces["http://a9.com/-/spec/opensearch/1.1/"] = "opensearch"
+# _FeedParserMixin.namespaces["http://arxiv.org/schemas/atom"] = "arxiv"
 
 
 class ArxivScraper:
@@ -61,7 +63,7 @@ class ArxivScraper:
         *,
         dirpath: str
     ) -> None:
-        """Downloads all papers returned by the search query."""
+        """Downloads all papers returned by the search query into a given directory."""
         dirpath = Path(dirpath)
         if not dirpath.exists():
             dirpath.mkdir()
@@ -71,15 +73,3 @@ class ArxivScraper:
                 dirpath=dirpath,
                 filename=fname_template.format(title=paper.title.replace(" ", "_")),
             )
-
-
-#########################################################################################
-## Resources ############################################################################
-#########################################################################################
-# !scraping_arxiv ex: https://www.askpython.com/python/examples/scrape-arxiv-papers-python
-# !arxiv api search_query docs: https://info.arxiv.org/help/api/user-manual.html#query_details
-# !arxiv package docs: https://github.com/lukasschwab/arxiv.py#example-downloading-papers
-# !relevant to research: https://arxcode.io/
-#########################################################################################
-##           ############################################################################
-#########################################################################################
