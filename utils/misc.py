@@ -11,9 +11,18 @@ def create_llm_config(model, temperature, seed) -> dict:
     args: model, temperature, seed
     --------
     """
+    # Models to fall back to if token limit is reached
     config_list = [
         {
             "model": model,
+            "api_key": os.environ.get("OPENAI_APIKEY"),
+        },
+        {
+            "model": "gpt-3.5-turbo",
+            "api_key": os.environ.get("OPENAI_APIKEY"),
+        },
+        {
+            "model": "gpt-3.5-turbo-16k",
             "api_key": os.environ.get("OPENAI_APIKEY"),
         },
     ]

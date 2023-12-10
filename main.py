@@ -16,7 +16,7 @@ from embeddings import (
     get_embedding_func,
     load_and_chunk_code,
 )
-from utils.utils import clone_and_clean_repo, ftos
+from utils.misc import clone_and_clean_repo, ftos
 
 # from langchain.schema.vectorstore import VectorStore
 # from langchain.schema.document import Document
