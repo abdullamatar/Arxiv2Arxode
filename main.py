@@ -4,6 +4,7 @@ import os
 
 from langchain.chat_models import ChatOpenAI
 
+# TODO: https://microsoft.github.io/autogen/blog/2023/11/20/AgentEval
 # TODO: re-view: youtube.com/watch?v=AVInhYBUnKs
 # from langchain.prompts import FewShotChatMessagePromptTemplate, PipelinePromptTemplate
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
