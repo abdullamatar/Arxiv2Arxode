@@ -13,9 +13,7 @@ from autogen.agentchat.user_proxy_agent import UserProxyAgent
 from utils.misc import create_llm_config
 
 # U N D E R  C O N S T R U C T I O N
-
-# This feels cursed and is a temp sol, I am missing something with the __init__ func and tiktoken embeddings?
-# dbconn = get_db_connection(cname="init_vecdb", efunc=get_embedding_func())
+# ◉_◉
 
 
 class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
@@ -27,11 +25,18 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         retrieve_config: Optional[Dict] = None,  # config for the retrieve agent
         **kwargs,
     ):
+        # TODO: cname as param to __init__ (datastore_name?), ef as well?
         self.embedding_function = get_embedding_func()
         self.dbconn = get_db_connection(
             cname="init_vecdb", efunc=self.embedding_function
         )
-        super().__init__()
+        super().__init__(
+            name=name,
+            human_input_mode=human_input_mode,
+            is_termination_msg=is_termination_msg,
+            retrieve_config=retrieve_config,
+            **kwargs,
+        )
 
     def query_vector_db(
         self,
@@ -39,7 +44,7 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         n_results: int = 10,
         search_string: str = "",
         **kwargs,
-    ) -> Dict[str, Union[List[str], List[List[str]]]]:
+    ) -> Dict[str, List[List[str]]]:
         # ef = get_embedding_func()
         # embed_response = self.embedding_function.embed_query(query_texts)
         # print(embed_response)
@@ -49,10 +54,15 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         )
 
         # TODO: get actual id from langchain
+        # They need the docs as a list of lists...
+        sim_score = [relevant_docs[i][1] for i in range(len(relevant_docs))]
         return {
-            "ids": [i for i in range(len(relevant_docs))],
-            "documents": [doc[0].page_content for doc in relevant_docs],
-            "metadatas": [doc[0].metadata for doc in relevant_docs],
+            "ids": [[i] for i in range(len(relevant_docs))],
+            "documents": [[doc[0].page_content] for doc in relevant_docs],
+            "metadatas": [
+                {**doc[0].metadata, "similarity_score": score}
+                for doc, score in zip(relevant_docs, sim_score)
+            ],
         }
 
     def retrieve_docs(
@@ -69,9 +79,10 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         # print(results)
         # # TODO: The northern winds blow strong...
         self._results = results  # Why?: It is a class property; state repr i guess?
+        return results
 
 
-class CUserProxyAgent(UserProxyAgent):
+class TaskCoordinator(UserProxyAgent):
     # async def a_get_human_input(self, prompt: str) -> str:
     #     pass
     # return await non_existent_async_func()
@@ -85,6 +96,10 @@ class CUserProxyAgent(UserProxyAgent):
     # ):
     #     pass
     # return await super().a_receive(message, sender, request_reply, silent)
+    def generate_init_message():
+        """To customize the initial message when a conversation starts, override generate_init_message method. (from docs)"""
+        ...
+
     pass
 
 

@@ -6,7 +6,7 @@ def ftos(fd):
         return f.read()
 
 
-def create_llm_config(model, temperature, seed) -> dict:
+def create_llm_config(model, seed, temperature=1.0) -> dict:
     """
     args: model, temperature, seed
     --------

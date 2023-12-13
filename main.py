@@ -4,7 +4,6 @@ import os
 
 from langchain.chat_models import ChatOpenAI
 
-# TODO: Preprocessing of information, summarize pdfs, extract implementable bits, get and embed code if exists ...
 # TODO: re-view: youtube.com/watch?v=AVInhYBUnKs
 # from langchain.prompts import FewShotChatMessagePromptTemplate, PipelinePromptTemplate
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
@@ -66,7 +65,7 @@ def mqr(query: str):
 
 
 # Prompt types: task init prompt | codegen prompt | summary prompt | reflection prompt
-# ?TO START, I am limiting the task type to be a simplified reimplementation of the paper(s) at hand
+# ?TO START, I am limiting the task type to be a simplified reimplementation of the paper(s)
 def main():
     logging.info(f"Your cwd is : {os.getcwd()}")
     logging.info(f"Turbo encabulator initialized...")
