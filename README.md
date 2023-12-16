@@ -5,7 +5,7 @@
 
 ----------
 
-To get an idea of what the code does currently or to try it out, look at and run the [`curr_usage.py`](./curr_usage.py) file...
+To get an idea of what the code does currently or to try it out, refer to the [`curr_usage.py`](./curr_usage.py) file.
 
 
 <img src="./imgs/DALL·E 2023-12-16 14.50.png" > </img>
