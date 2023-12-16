@@ -171,4 +171,5 @@ def call_rag_chat():
 
 
 if __name__ == "__main__":
+    # mmm yes main function call
     call_rag_chat()

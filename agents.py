@@ -125,7 +125,7 @@ async def non_existent_async_func():
 
 
 async def main():
-    boss = CUserProxyAgent(
+    boss = UserProxyAgent(
         name="boss",
         human_input_mode="ALWAYS",
         max_consecutive_auto_reply=0,
