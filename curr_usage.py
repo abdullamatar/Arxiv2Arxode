@@ -1,4 +1,3 @@
-# RC: https://www.youtube.com/watch?v=PUPO2tTyPOo&t=2s
 from autogen import GroupChat, GroupChatManager
 from agents import EmbeddingRetrieverAgent
 from autogen import UserProxyAgent, AssistantAgent
@@ -14,6 +13,7 @@ Sometimes, there might be a need to use RetrieveUserProxyAgent in group chat wit
 SEED = 22
 PROBLEM = "I want to understand the agent tuning paper and come out with a minimal implementation of some of the core ideas in the paper the code must be executable."
 # TODO: creating llm conf isnt really misc...
+# TODO: def write python function
 lmconf = create_llm_config(model="gpt-4-1106-preview", temperature=1, seed=SEED)
 
 termination_msg = (
@@ -63,8 +63,9 @@ agent2 = AssistantAgent(
 )
 
 agent3 = AssistantAgent(
-    name="machinelearning_engineer",
-    system_message="Your role is to implement the interface designed by the code designer. You should focus on the implementation of the interface according to the task at hand, with the end goal of making it clear and simple for the coding agent to implement the interface. When you are done reply with 'TERMINATE'",
+    name="ml_eng",
+    system_message="Your role is to implement the interface designed by the code designer. You should focus on the implementation of the interface according to the task at hand, with the end goal of creating an executable, self contained python file.",
+    # code_execution_config=True,
     is_termination_msg=termination_msg,
     llm_config=lmconf,
 )
@@ -78,24 +79,6 @@ def _reset_agents():
     agent1.reset()
     agent2.reset()
     agent3.reset()
-
-
-def rag_chat():
-    _reset_agents()
-    groupchat = GroupChat(
-        agents=[agent1, agent2, agent3],
-        messages=[],
-        max_round=12,
-        speaker_selection_method="round_robin",
-    )
-    manager = GroupChatManager(groupchat=groupchat, llm_config=lmconf)
-
-    # Start chatting with boss_aid as this is the user proxy agent.
-    agent1.initiate_chat(
-        manager,
-        problem=PROBLEM,
-        n_results=3,
-    )
 
 
 def call_rag_chat():
@@ -120,9 +103,7 @@ def call_rag_chat():
             ret_msg = agent1.generate_init_message(message, n_results=n_results)
         return ret_msg if ret_msg else message
 
-    agent1.human_input_mode = (
-        "NEVER"  # Disable human input for boss_aid since it only retrieves content.
-    )
+    agent1.human_input_mode = "NEVER"
     nested_conf = {
         "functions": [
             {

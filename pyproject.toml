@@ -3,7 +3,7 @@ name = "arxiv2arxode"
 version = "0.1.0"
 description = "Undergrad research project"
 authors = ["Abdulla <abdullabloushi@gmail.com>"]
-license = "MIT"
+license = "UNLICENSE"
 readme = "README.md"
 
 [tool.poetry.dependencies]
