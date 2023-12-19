@@ -1,12 +1,4 @@
 class Coordinator:
-    """Manage Multi-agent interactions."""
-
-    pass
-class Coordinator:
-    """Manage Multi-agent interactions."""
-
-    pass
-class Coordinator:
-    """Manage Multi-agent interactions."""
+    """Manage Multi-Agent Conversations"""
 
     pass

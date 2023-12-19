@@ -41,7 +41,7 @@ OUTFILE_NAME = "output.py"
 
 
 def m():
-    from arxiv_search import ArxivScraper
+    from utils.arxiv import ArxivScraper
 
     ax = ArxivScraper()
     papers = ax.search_papers("Agent tuning generalized agents for llms")

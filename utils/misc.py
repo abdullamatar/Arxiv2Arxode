@@ -6,7 +6,7 @@ def ftos(fd):
         return f.read()
 
 
-def create_llm_config(model, seed, temperature=1.0) -> dict:
+def create_llm_config(model, seed: int | None = None, temperature=1.0) -> dict:
     """
     args: model, temperature, seed
     --------
@@ -28,7 +28,7 @@ def create_llm_config(model, seed, temperature=1.0) -> dict:
     ]
 
     llm_config = {
-        "seed": int(seed),
+        "seed": seed,
         "config_list": config_list,
         "temperature": float(temperature),
     }
