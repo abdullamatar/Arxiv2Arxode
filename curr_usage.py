@@ -117,6 +117,9 @@ def call_rag_chat(problem=PROBLEM):
             ret_msg = agent1.generate_init_message(message, n_results=n_results)
         return ret_msg if ret_msg else message
 
+    def activate_rag(message):
+        return agent1.retrieve_docs(message)
+
     agent1.human_input_mode = "NEVER"
     nested_conf = {
         "functions": [
@@ -147,6 +150,7 @@ def call_rag_chat(problem=PROBLEM):
         agent.register_function(
             function_map={
                 "retrieve_content": retrieve_content,
+                "activate_rag": activate_rag,
             }
         )
 
@@ -155,7 +159,7 @@ def call_rag_chat(problem=PROBLEM):
         messages=[],
         max_round=13,
     )
-    manager = GroupChatManager(groupchat=groupchat, llm_config=lmconf)
+    # manager = GroupChatManager(groupchat=groupchat, llm_config=lmconf)
     # manager_conf = nested_conf.copy()
     # manager_conf.pop("functions")
     manager = GroupChatManager(groupchat=groupchat, llm_config=lmconf)
@@ -167,4 +171,6 @@ def call_rag_chat(problem=PROBLEM):
 
 if __name__ == "__main__":
     # mmm yes main function call
-    call_rag_chat()
+    call_rag_chat(
+        problem="Please summarize the agent tuning paper for me, use the retrieve content function to get more information about the agent tuning paper"
+    )

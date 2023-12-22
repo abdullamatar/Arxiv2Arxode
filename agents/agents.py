@@ -1,5 +1,8 @@
 import asyncio
-from typing import Dict, List, Optional, Callable
+from typing import Dict, List, Optional, Callable, Union
+import logging
+
+from autogen.agentchat.agent import Agent
 from embeddings import get_db_connection, get_embedding_func
 import nest_asyncio
 from autogen import AssistantAgent
@@ -36,6 +39,21 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
             retrieve_config=retrieve_config,
             **kwargs,
         )
+
+    async def a_receive(
+        self,
+        message: Dict | str,
+        sender: Agent,
+        request_reply: bool | None = None,
+        silent: bool | None = False,
+    ):
+        logging.info(f"EmbeddingRetrieverAgent received message from {sender.name}")
+        if sender.name == "coordinator" and "Retrieve relevant documents" in message:
+            problem = message.replace("Retrieve relevant documents for: ", "")
+            logging.info(f"Retrieving documents for problem: {problem}")
+            retrieved_content = await self.retrieve_docs(problem)  # Ensure async call
+            logging.info(f"Retrieved content: {retrieved_content}")
+        return super().a_receive(message, sender, request_reply, silent)
 
     def query_vector_db(
         self,
