@@ -124,8 +124,8 @@ async def non_existent_async_func():
 
 
 async def main():
-    boss = UserProxyAgent(
-        name="boss",
+    main = UserProxyAgent(
+        name="main",
         human_input_mode="ALWAYS",
         max_consecutive_auto_reply=0,
         code_execution_config=False,
@@ -138,7 +138,7 @@ async def main():
         llm_config=create_llm_config("gpt-4", "0.4", "22"),
     )
 
-    await boss.a_initiate_chat(
+    await main.a_initiate_chat(
         assistant,
         message="Under construction.",
         n_results=3,
