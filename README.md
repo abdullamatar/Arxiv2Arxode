@@ -8,7 +8,7 @@
 __To get an idea of what the code does or to try it out the current state of the program, refer to the [`curr_usage.py`](./curr_usage.py) file.__
 
 ----
-**NOTE**
+**NOTE**: </br>
 The behavior is currently borken and the retrieval function is not being triggered by the agents in the groupchat.
 ----
 
