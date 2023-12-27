@@ -7,11 +7,6 @@
 
 __To get an idea of what the code does or to try it out the current state of the program, refer to the [`curr_usage.py`](./curr_usage.py) file.__
 
-----
-**NOTE**: </br>
-The behavior is currently borken and the retrieval function is not being triggered by the agents in the groupchat.
-----
-
 
 <img src="./imgs/DALL·E 2023-12-16 14.50.png" > </img>
 

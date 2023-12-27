@@ -29,16 +29,16 @@ termination_msg = (
 #     else:
 #         return False
 
-lmconf = {
-    **lmconf,
-    # "cache_seed": SEED,
-}
+# lmconf = {
+#     **lmconf,
+#     # "cache_seed": SEED,
+# }
 
 # usrproxagent can exe code, feedback provider to other agents.
 # To modify the way to execute code blocks, single code block, or function call, override execute_code_blocks, run_code, and execute_function methods respectively. (https://microsoft.github.io/autogen/docs/reference/agentchat/user_proxy_agent)
 
 
-def research_team(lmconf, termination_msg) -> List[ConversableAgent]:
+def create_research_team(lmconf, termination_msg) -> List[ConversableAgent]:
     agent0 = UserProxyAgent(
         name="coordinator",
         human_input_mode="NEVER",
@@ -51,13 +51,16 @@ def research_team(lmconf, termination_msg) -> List[ConversableAgent]:
         # },
     )
 
-    agent1 = EmbeddingRetrieverAgent(
+    retriever = EmbeddingRetrieverAgent(
         name="info_hoarder",
         human_input_mode="NEVER",
         max_consecutive_auto_reply=4,
         system_message="You play a pivotal role in the progression of the task at hand as you have access to databases that store embeddings of research papers and their associated code if it exists. Your main job is to provide a detailed and step by step understanding of the relevant research paper(s) and pieces of code to the other agents. You should focus on the core ideas of the paper and the code base and how they relate to each other, with the end goal of helping in providing an implementation plan.",
         code_execution_config=False,
         is_termination_msg=termination_msg,
+        retrieve_config={
+            "task": "qa",
+        },
     )
 
     agent2 = AssistantAgent(
@@ -70,57 +73,70 @@ def research_team(lmconf, termination_msg) -> List[ConversableAgent]:
     agent3 = AssistantAgent(
         name="ml_eng",
         system_message="Your role is to implement the interface designed by the code designer. You should focus on the implementation of the interface according to the task at hand, with the end goal of creating an executable, self contained python file.",
-        # code_execution_config=True,
-        code_execution_config=False,
-        function_map={
-            "execute_and_save": execute_and_save,
-        },
+        # code_execution_config=[True],
+        # function_map={
+        #     "execute_and_save": execute_and_save,
+        # },
         is_termination_msg=termination_msg,
         llm_config=lmconf,
     )
 
-    return [agent0, agent1, agent2, agent3]
-
-
-agent0, agent1, agent2, agent3 = research_team(lmconf, termination_msg)
+    return [agent0, retriever, agent2, agent3]
 
 
 # rc: https://microsoft.github.io/autogen/blog/2023/10/18/RetrieveChat/
 
 
-def _reset_agents():
-    agent0.reset()
-    agent1.reset()
-    agent2.reset()
-    agent3.reset()
+def _reset_agents(agents: List[ConversableAgent]) -> List[ConversableAgent]:
+    return [agent.reset() for agent in agents]
+
+
+def init_rag_gc(problem):
+    agent0, retriever, agent2, agent3 = create_research_team(lmconf, termination_msg)
+    _reset_agents([agent0, retriever, agent2, agent3])
+    groupchat = GroupChat(
+        agents=[agent0, retriever, agent2, agent3],
+        messages=[],
+        max_round=13,
+    )
+    # manager = GroupChatManager(groupchat=groupchat, llm_config=lmconf)
+    # manager_conf = nested_conf.copy()
+    # manager_conf.pop("functions")
+    manager = GroupChatManager(groupchat=groupchat, llm_config=lmconf)
+    retriever.initiate_chat(
+        manager,
+        problem=problem,
+    )
 
 
 def call_rag_chat(problem=PROBLEM):
-    _reset_agents()
+    agent0, retriever, agent2, agent3 = create_research_team(lmconf, termination_msg)
+    _reset_agents([agent0, retriever, agent2, agent3])
 
     # In this case, we will have multiple user proxy agents and we don't initiate the chat
     # with RAG user proxy agent.
     # In order to use RAG user proxy agent, we need to wrap RAG agents in a function and call
     # it from other agents.
+
     def retrieve_content(message, n_results=4):
-        agent1.n_results = n_results  # Set the number of results to be retrieved.
+        retriever.n_results = n_results  # Set the number of results to be retrieved.
         # Check if we need to update the context.
-        update_context_case1, update_context_case2 = agent1._check_update_context(
+        update_context_case1, update_context_case2 = retriever._check_update_context(
             message
         )
-        if (update_context_case1 or update_context_case2) and agent1.update_context:
-            agent1.problem = (
-                message if not hasattr(agent1, "problem") else agent1.problem
+        if (update_context_case1 or update_context_case2) and retriever.update_context:
+            retriever.problem = (
+                message if not hasattr(retriever, "problem") else retriever.problem
             )
-            _, ret_msg = agent1._generate_retrieve_user_reply(message)
+            _, ret_msg = retriever._generate_retrieve_user_reply(message)
         else:
-            ret_msg = agent1.generate_init_message(message, n_results=n_results)
+            ret_msg = retriever.generate_init_message(message, n_results=n_results)
         return ret_msg if ret_msg else message
 
-    def activate_rag(message):
-        return agent1.retrieve_docs(message)
+    # def activate_rag(message):
+    #     return retriever.retrieve_docs(message)
 
-    agent1.human_input_mode = "NEVER"
+    retriever.human_input_mode = "NEVER"
     nested_conf = {
         "functions": [
             {
@@ -150,7 +166,7 @@ def call_rag_chat(problem=PROBLEM):
         agent.register_function(
             function_map={
                 "retrieve_content": retrieve_content,
-                "activate_rag": activate_rag,
+                # "activate_rag": activate_rag,
             }
         )
 
@@ -163,14 +179,15 @@ def call_rag_chat(problem=PROBLEM):
     # manager_conf = nested_conf.copy()
     # manager_conf.pop("functions")
     manager = GroupChatManager(groupchat=groupchat, llm_config=lmconf)
-    agent0.initiate_chat(
+    retriever.initiate_chat(
         manager,
-        message=problem,
+        problem=problem,
     )
 
 
 if __name__ == "__main__":
-    # mmm yes main function call
     call_rag_chat(
+        problem="Please summarize the agent tuning paper for me, use the retrieve content function to get more information about the agent tuning paper"
+    ) or init_rag_gc(
         problem="Please summarize the agent tuning paper for me, use the retrieve content function to get more information about the agent tuning paper"
     )

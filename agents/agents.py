@@ -40,20 +40,20 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
             **kwargs,
         )
 
-    async def a_receive(
-        self,
-        message: Dict | str,
-        sender: Agent,
-        request_reply: bool | None = None,
-        silent: bool | None = False,
-    ):
-        logging.info(f"EmbeddingRetrieverAgent received message from {sender.name}")
-        if sender.name == "coordinator" and "Retrieve relevant documents" in message:
-            problem = message.replace("Retrieve relevant documents for: ", "")
-            logging.info(f"Retrieving documents for problem: {problem}")
-            retrieved_content = await self.retrieve_docs(problem)  # Ensure async call
-            logging.info(f"Retrieved content: {retrieved_content}")
-        return super().a_receive(message, sender, request_reply, silent)
+    # async def a_receive(
+    #     self,
+    #     message: Dict | str,
+    #     sender: Agent,
+    #     request_reply: bool | None = None,
+    #     silent: bool | None = False,
+    # ):
+    #     logging.info(f"EmbeddingRetrieverAgent received message from {sender.name}")
+    #     if sender.name == "coordinator" and "Retrieve relevant documents" in message:
+    #         problem = message.replace("Retrieve relevant documents for: ", "")
+    #         logging.info(f"Retrieving documents for problem: {problem}")
+    #         retrieved_content = await self.retrieve_docs(problem)  # Ensure async call
+    #         logging.info(f"Retrieved content: {retrieved_content}")
+    #     return super().a_receive(message, sender, request_reply, silent)
 
     def query_vector_db(
         self,
@@ -66,7 +66,7 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         # embed_response = self.embedding_function.embed_query(query_texts)
         # print(embed_response)
         relevant_docs = self.dbconn.similarity_search_with_relevance_scores(
-            query=query_texts,
+            query=search_string,
             k=n_results,
         )
 
