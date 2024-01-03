@@ -1,0 +1,7 @@
+[
+    {
+        "sender": "main_userproxy",
+        "receiver": "info_hoarder",
+        "message": "I want to understand the agent tuning paper and come out with a minimal implementation of some of the core ideas in the paper the code must be executable."
+    }
+]

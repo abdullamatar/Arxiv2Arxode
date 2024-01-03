@@ -2,9 +2,9 @@ from pathlib import Path
 from typing import List, Optional
 
 import arxiv
-from feedparser.mixin import _FeedParserMixin
-
 from arxiv_paper import ArxivPaper
+
+# from feedparser.mixin import _FeedParserMixin
 
 # import urllib.request, urllib.parse, urllib.error
 # import feedparser

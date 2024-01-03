@@ -1,18 +1,18 @@
 import asyncio
-from typing import Dict, List, Optional, Callable, Union
 import logging
+from typing import Callable, Dict, List, Optional, Union
 
-from autogen.agentchat.agent import Agent
-from embeddings import get_db_connection, get_embedding_func
 import nest_asyncio
 from autogen import AssistantAgent
+from autogen.agentchat.agent import Agent
 
 # from autogen.agentchat.agent import Agent
 from autogen.agentchat.contrib.retrieve_assistant_agent import RetrieveAssistantAgent
 from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
 from autogen.agentchat.user_proxy_agent import UserProxyAgent
 
-from utils.misc import create_llm_config
+import agents.agent_conf as agent_conf
+from embeddings import get_db_connection, get_embedding_func
 
 # U N D E R  C O N S T R U C T I O N
 # ◉_◉
@@ -59,14 +59,14 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         self,
         query_texts: List[str],
         n_results: int = 10,
-        search_string: str = "",
+        search_string: str = None,
         **kwargs,
     ) -> Dict[str, List[List[str]]]:
         # ef = get_embedding_func()
         # embed_response = self.embedding_function.embed_query(query_texts)
         # print(embed_response)
         relevant_docs = self.dbconn.similarity_search_with_relevance_scores(
-            query=search_string,
+            query=query_texts,
             k=n_results,
         )
 
@@ -83,8 +83,14 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         }
 
     def retrieve_docs(
-        self, problem: str, n_results: int = 4, search_string: str = "", **kwargs
+        self, problem: str, n_results: int = 4, search_string: str = None, **kwargs
     ):
+        """
+        Args:
+            problem (str): the problem to be solved.
+            n_results (int): the number of results to be retrieved. Default is 20.
+            search_string (str): only docs that contain an exact match of this string will be retrieved. Default is "".
+        """
         results = self.query_vector_db(
             query_texts=problem,
             n_results=n_results,
@@ -99,44 +105,6 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         return results
 
 
-class TaskCoordinator(UserProxyAgent):
-    # async def a_get_human_input(self, prompt: str) -> str:
-    #     pass
-    # return await non_existent_async_func()
-
-    # async def a_receive(
-    #     self,
-    #     message: Dict | str,
-    #     sender: Agent,
-    #     request_reply: bool | None = None,
-    #     silent: bool | None = False,
-    # ):
-    #     pass
-    # return await super().a_receive(message, sender, request_reply, silent)
-    def generate_init_message():
-        """To customize the initial message when a conversation starts, override generate_init_message method. (from docs)"""
-        ...
-
-    pass
-
-
-class CustomAssistant(AssistantAgent):
-    # async def a_get_human_input(self, prompt: str) -> str:
-    #     user_input = await non_existent_async_func()
-    #     return str(user_input) + "hamburger"
-
-    # async def a_receive(
-    #     self,
-    #     message: Union[Dict, str],
-    #     sender,
-    #     request_reply: Optional[bool] = None,
-    #     silent: Optional[bool] = False,
-    # ):
-    #     # Call the superclass method to handle message reception asynchronously
-    #     await super().a_receive(message, sender, request_reply, silent)
-    pass
-
-
 async def non_existent_async_func():
     await asyncio.sleep(4)
 
@@ -149,11 +117,11 @@ async def main():
         code_execution_config=False,
     )
 
-    assistant = CustomAssistant(
+    assistant = AssistantAgent(
         name="assistant",
         #! system message, fixed typo: https://github.com/microsoft/autogen/blob/main/notebook/Async_human_input.ipynb
         system_message="Under construction.",
-        llm_config=create_llm_config("gpt-4", "0.4", "22"),
+        llm_config=agent_conf.base_cfg,
     )
 
     await main.a_initiate_chat(

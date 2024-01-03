@@ -3,19 +3,14 @@ import logging
 import os
 
 from langchain.chat_models import ChatOpenAI
-
 # TODO: https://microsoft.github.io/autogen/blog/2023/11/20/AgentEval
 # TODO: re-view: youtube.com/watch?v=AVInhYBUnKs
 # from langchain.prompts import FewShotChatMessagePromptTemplate, PipelinePromptTemplate
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain.retrievers import MultiQueryRetriever
 
-from embeddings import (
-    create_embedding_collection,
-    get_db_connection,
-    get_embedding_func,
-    load_and_chunk_code,
-)
+from embeddings import (create_embedding_collection, get_db_connection,
+                        get_embedding_func, load_and_chunk_code)
 from utils.misc import clone_and_clean_repo, ftos
 
 # from langchain.schema.vectorstore import VectorStore
