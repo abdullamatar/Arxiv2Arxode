@@ -24,6 +24,28 @@ base_cfg = {
     "temperature": 1.0,
 }
 
+retrieve_conf = {
+    **base_cfg,
+    "functions": [
+        {
+            "name": "retrieve_content",
+            "description": "retrieve content for code generation and question answering.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "description": "Refined message which keeps the original meaning and can be used to retrieve content for code generation and question answering.",
+                    }
+                },
+                "required": ["message"],
+            },
+        },
+    ],
+    "timeout": 60,
+    "seed": 42,
+}
+
 exec_py_conf = {
     **base_cfg,
     "functions": [
