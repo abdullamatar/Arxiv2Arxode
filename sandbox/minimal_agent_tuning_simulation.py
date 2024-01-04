@@ -2,6 +2,7 @@
 
 import random
 
+
 # Simulating a GPT-like model's response
 def simulate_gpt_response(prompt):
     # Note: This is just a placeholder function. In a real implementation,
