@@ -16,10 +16,10 @@ Call RetrieveUserProxyAgent while init chat with another user proxy agent
 Sometimes, there might be a need to use RetrieveUserProxyAgent in group chat without initializing the chat with it. In such scenarios, it becomes essential to create a function that wraps the RAG agents and allows them to be called from other agents. WHY?
 """
 
-
 PROBLEM = "I want to understand the agent tuning paper and come out with a minimal implementation of some of the core ideas in the paper the code must be executable."
 
-# TODO: def write python function
+# TODO: https://microsoft.github.io/autogen/blog/2023/10/26/TeachableAgent
+
 termination_msg = (
     lambda x: isinstance(x, dict)
     and "TERMINATE" == str(x.get("content", ""))[-9:].upper()
