@@ -3,13 +3,18 @@ import logging
 import os
 
 from langchain.chat_models import ChatOpenAI
+
 # TODO: https://microsoft.github.io/autogen/blog/2023/11/20/AgentEval
 # from langchain.prompts import FewShotChatMessagePromptTemplate, PipelinePromptTemplate
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain.retrievers import MultiQueryRetriever
 
-from embeddings import (create_embedding_collection, get_db_connection,
-                        get_embedding_func, load_and_chunk_code)
+from lib.embeddings import (
+    create_embedding_collection,
+    get_db_connection,
+    get_embedding_func,
+    load_and_chunk_code,
+)
 from utils.misc import clone_and_clean_repo, ftos
 
 # from langchain.schema.vectorstore import VectorStore
@@ -60,7 +65,7 @@ def mqr(query: str):
 
 
 # Prompt types: task init prompt | codegen prompt | summary prompt | reflection prompt
-# ?TO START, I am limiting the task type to be a simplified reimplementation of the paper(s)
+# Nothing interesting here yet...
 def main():
     logging.info(f"Your cwd is : {os.getcwd()}")
     logging.info(f"Turbo encabulator initialized...")
@@ -78,9 +83,7 @@ def main():
     init_prompt = system_init_prompt
     # print(init_prompt.input_variables)
 
-    init_prompt = init_prompt.format_prompt(
-        init_task_description="I want to recreate, in a simplified manner, any ideas that seem implementable from agent tuning paper. For example, create a minimal environment where I can understand how they ran one specific evaluation. I want to better understand some of the core concepts of llms as agents and how they are evaluated."
-    )
+    init_prompt = init_prompt.format_prompt(init_task_description="chicken parm")
 
     # dynamic_ic_prompt = dynamic_ic_prompt.format_prompt(
     #     curr_task_description="",

@@ -1,13 +1,16 @@
 from typing import Any, Dict, List
 
-from autogen import (AssistantAgent, ConversableAgent, GroupChat,
-                     GroupChatManager, UserProxyAgent)
-from autogen.agentchat.contrib.retrieve_assistant_agent import \
-    RetrieveAssistantAgent
+from autogen import (
+    AssistantAgent,
+    ConversableAgent,
+    GroupChat,
+    GroupChatManager,
+    UserProxyAgent,
+)
+from autogen.agentchat.contrib.retrieve_assistant_agent import RetrieveAssistantAgent
 
-from agents.agent_conf import (base_cfg, exec_py_conf, retrieve_conf,
-                               write_file_config)
-from agents.agents import EmbeddingRetrieverAgent
+from agents.agent import EmbeddingRetrieverAgent
+from agents.agent_conf import base_cfg, exec_py_conf, retrieve_conf, write_file_config
 from agents.functions import Functions
 
 """
@@ -77,6 +80,8 @@ def create_research_team() -> List[ConversableAgent]:
         is_termination_msg=termination_msg,
         llm_config=retrieve_conf,
     )
+    # agent0.sen
+    # retriever.send
 
     return [agent0, retriever, agent2, agent3]
 
@@ -129,12 +134,6 @@ def init_rag_gc(problem) -> None:
         manager,
         message=problem,
     )
-
-
-# In this case, we will have multiple user proxy agents and we don't initiate the chat
-# with RAG user proxy agent.
-# In order to use RAG user proxy agent, we need to wrap RAG agents in a function and call
-# it from other agents.
 
 
 if __name__ == "__main__":

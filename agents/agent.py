@@ -5,21 +5,24 @@ from typing import Callable, Dict, List, Optional, Union
 import nest_asyncio
 from autogen import AssistantAgent
 from autogen.agentchat.agent import Agent
+
 # from autogen.agentchat.agent import Agent
-from autogen.agentchat.contrib.retrieve_assistant_agent import \
-    RetrieveAssistantAgent
-from autogen.agentchat.contrib.retrieve_user_proxy_agent import \
-    RetrieveUserProxyAgent
+from autogen.agentchat.contrib.retrieve_assistant_agent import RetrieveAssistantAgent
+from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
 from autogen.agentchat.user_proxy_agent import UserProxyAgent
 
 import agents.agent_conf as agent_conf
-from embeddings import get_db_connection, get_embedding_func
+from lib.embeddings import get_db_connection, get_embedding_func
 
 # U N D E R  C O N S T R U C T I O N
 # ◉_◉
 
 
+# self.register_reply(Agent, RetrieveUserProxyAgent._generate_retrieve_user_reply, position=2)
+# This agent by default must be triggered by another agent ^, from src
 class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
+    """Custom retriever agent that uses an embeddings database to retrieve relevant documents."""
+
     def __init__(
         self,
         name="RetrieveChatAgent",  # default set to RetrieveChatAgent
@@ -103,7 +106,10 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         # print(results)
         # # TODO: The northern winds blow strong...
         self._results = results  # Why?: It is a class property; state repr i guess?
-        return results
+        # return results
+
+    def get_content(self):
+        return self._doc_contents
 
 
 async def non_existent_async_func():

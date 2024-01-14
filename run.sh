@@ -1,8 +1,29 @@
 #!/usr/bin/env bash
+usage() {
+    echo "Usage: $0 [-m] <python_script_or_module>"
+    echo "  -m: Run as a Python module (using python -m)"
+    echo "  No flag: Run as a Python script"
+    exit 1
+}
+
+MODE="script"
+
+while getopts ":m" opt; do
+  case $opt in
+    m)
+      MODE="module"
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      usage
+      ;;
+  esac
+done
+
+shift $((OPTIND -1))
 
 if [ "$#" -ne 1 ]; then
-    echo "$0 <python_script>"
-    exit 4
+    usage
 fi
 
 if [ ! -f .env ]; then
@@ -14,10 +35,14 @@ set -a
 source .env
 set +a
 
-SCRIPT="$1"
-if [ ! -f "$SCRIPT" ]; then
-    echo "Nonexistent python file, '$SCRIPT' not found"
-    exit 1
-fi
+ARGUMENT="$1"
 
-python3 "$SCRIPT"
+if [ "$MODE" = "module" ]; then
+    python -m "$ARGUMENT"
+else
+    if [ ! -f "$ARGUMENT" ]; then
+        echo "Python script '$ARGUMENT' not found"
+        exit 2
+    fi
+    python "$ARGUMENT"
+fi
