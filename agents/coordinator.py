@@ -2,14 +2,14 @@ import json
 import logging
 from dataclasses import asdict, dataclass
 from typing import List, Optional, Tuple
-import autogen
-import agents.functions as functions
-from agents.agent_conf import retrieve_conf
 
+import autogen
 from autogen import GroupChat, GroupChatManager
 
+import agents.functions as functions
 # TODO: Change curr_usage to actual lib file
 import lib.curr_usage as curr_usage
+from agents.agent_conf import retrieve_conf
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
