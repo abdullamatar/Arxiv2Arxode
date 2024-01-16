@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 usage() {
     echo "Usage: $0 [-m] <python_script_or_module>"
     echo "  -m: Run as a Python module (using python -m)"

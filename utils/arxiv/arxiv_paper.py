@@ -18,6 +18,8 @@ GENERAL_URL_PATTERN = r"https?://[a-zA-Z0-9\.-]+\.[a-zA-Z]{2,}(?:/[a-zA-Z0-9\-_]
 
 @dataclass
 class ArxivPaper:
+    """ArxivPaper Type Class"""
+
     pid: str
     title: str
     authors: List[str]

@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import arxiv
-from arxiv_paper import ArxivPaper
+import utils.arxiv.arxiv_paper as axp
 
 # from feedparser.mixin import _FeedParserMixin
 
@@ -35,9 +35,9 @@ class ArxivScraper:
         search_query: str,
         max_results: int = 5,
         sort_by: Optional[str] = arxiv.SortCriterion.Relevance,
-    ) -> List[ArxivPaper]:
+    ) -> List[axp.ArxivPaper]:
         """
-        Search for papers on arXiv based on the given query, returns a list of ArxivPaper objects.
+        Search for papers on arXiv based on the given query, returns a list of axp.ArxivPaper objects.
         --------------------
         search_query: The search query string.
         start: The starting index for the results.
@@ -54,11 +54,13 @@ class ArxivScraper:
         search = arxiv.Search(
             query=search_query, max_results=max_results, sort_by=sort_by
         )
-        return [ArxivPaper.from_query(entry) for entry in self.client.results(search)]
+        return [
+            axp.ArxivPaper.from_query(entry) for entry in self.client.results(search)
+        ]
 
     def download_papers(
         self,
-        papers: List[ArxivPaper],
+        papers: List[axp.ArxivPaper],
         fname_template: str = "{title}.pdf",
         *,
         dirpath: str

@@ -65,8 +65,8 @@ def get_db_connection(cname, efunc: str | None = None) -> VectorStore:
 def create_embedding_collection(
     chunked_docs: List[Document],
     embeddings: Embeddings,
+    collection_name: str,
     db_dir: Optional[str] | None = None,
-    collection_name: Optional[str] = "",
 ) -> VectorStore:
     """
     Initialize vector database, optionally provide embeddings, db persistance directory, and collection name.
@@ -107,5 +107,6 @@ def load_and_chunk_code(
 if __name__ == "__main__":
     # docs = load_and_chunk_papers("./temp")
     # vdb = create_embedding_collection(docs, get_embedding_func(docs))
-    print(load_and_chunk_code("./temprepo"))
-    print(type(load_and_chunk_code("./temprepo")))
+    # print(load_and_chunk_code("./temprepo"))
+    print(CONNECTION_STRING)
+    # print(type(load_and_chunk_code("./temprepo")))

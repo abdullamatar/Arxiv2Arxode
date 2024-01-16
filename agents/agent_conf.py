@@ -43,7 +43,7 @@ retrieve_conf = {
         },
     ],
     "timeout": 60,
-    "seed": 42,
+    # "seed": 42,
 }
 
 exec_py_conf = {

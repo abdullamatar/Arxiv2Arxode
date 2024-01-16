@@ -7,9 +7,11 @@ import autogen
 from autogen import GroupChat, GroupChatManager
 
 import agents.functions as functions
+
 # TODO: Change curr_usage to actual lib file
 import lib.curr_usage as curr_usage
-from agents.agent_conf import retrieve_conf
+from agents.agent_conf import retrieve_conf, base_cfg
+from agents.agent import EmbeddingRetrieverAgent
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -208,163 +210,34 @@ class Coordinator:
             return self.validate_results_func()
         return True, ""
 
-    def sequential_conversation(self, prompt: str) -> ConversationResult:
-        """
-        Runs a sequential conversation between agents.
+    def code_gen(self, task_description: str) -> ConversationResult:
+        for _ in range(15):
+            for idx, agent in enumerate(self.agents):
+                if isinstance(agent, EmbeddingRetrieverAgent):
+                    retrieved_docs = agent.retrieve_docs(task_description, n_results=13)
+                    retrieved_info = (
+                        "\n\n".join([doc[0] for doc in retrieved_docs["documents"]])
+                        if "documents" in retrieved_docs
+                        else ""
+                    )
+                    self.agents[idx + 1].send({"content": retrieved_info}, agent)
 
-        The most common type of conversation.
+                elif isinstance(agent, autogen.UserProxyAgent):
+                    next_agent = self.agents[idx + 1]
+                    last_message = agent.last_message()
+                    if last_message is not None:
+                        next_agent.send(last_message, agent)
 
-        For example
-            "Agent A" -> "Agent B" -> "Agent C" -> "Agent D" -> "Agent E"
-        """
+                elif isinstance(agent, autogen.AssistantAgent):
+                    # Assuming generate_code_execution_reply returns a string with code
+                    code_generation_response = agent.generate_code_execution_reply(
+                        current_query
+                    )
+                    if code_generation_response is not None:
+                        generated_code += code_generation_response + "\n\n"
+                        current_query = code_generation_response
 
-        logger.info(
-            f"\n\n>>>>>>>>> {self.team_name} Orchestrator Starting <<<<<<<<<\n\n"
-        )
-
-        self.store_msg(prompt)
-
-        for idx, _ in enumerate(self.agents):
-            agent_a = self.agents[idx]
-            agent_b = self.agents[idx + 1]
-
-            logger.info(
-                f"\n\n>>>>>>>>> Running iteration {idx} with (agent_a: {agent_a.name}, agent_b: {agent_b.name}) <<<<<<<<<\n\n"
-            )
-
-            logger.info(f"Latest message: {self.latest_message}")
-
-            # agent_a -> chat -> agent_b
-            if self.last_message_is_string:
-                logger.info(f"basic_chat triggered last message is string")
-                self.basic_chat(agent_a, agent_b, self.latest_message)
-
-            # agent_a -> func() -> agent_b
-            if self.last_message_is_func_call and self.has_functions(agent_a):
-                logger.info(f"function_chat triggered last message is func")
-                self.function_chat(agent_a, agent_b, self.latest_message)
-
-            self.log_curr_state()
-
-            logger.info(f"Latest message: {self.latest_message}")
-            logger.info(f"index: {idx}, total_agents: {self.total_agents}")
-
-            if idx == self.total_agents - 2:
-                if self.has_functions(agent_b):
-                    # agent_b -> func() -> agent_b
-                    self.self_function_chat(agent_b, self.latest_message)
-
-                logger.info(f">>>>>>>> Orchestrator Complete <<<<<<<<\n\n")
-
-                was_successful, error_message = self.handle_validate_func()
-
-                self.log_curr_state()
-
-                cost, tokens = self.get_cost_and_tokens()
-
-                return ConversationResult(
-                    success=was_successful,
-                    messages=self.messages,
-                    cost=cost,
-                    tokens=tokens,
-                    last_message_str=self.last_message_as_string,
-                    error_message=error_message,
-                )
-
-    def arxiv2arxode(self, task_description: str) -> ConversationResult:
-        for agent in self.agents:
-            agent.reset()
-        (
-            main_userprox,
-            retriever,
-            code_reviewer,
-            coding_llm,
-        ) = self.agents
-
-        # context = retriever.query_vector_db(query_texts=task_description)
-        # code_gen = ""
-        groupchat = GroupChat(
-            agents=[main_userprox, code_reviewer, coding_llm],
-            messages=[],
-            max_round=44,
-            allow_repeat_speaker=False,
-            speaker_selection_method="auto",
-        )
-
-        def retrieve_content(message, n_results=7, retriever=retriever):
-            retriever.n_results = (
-                n_results  # Set the number of results to be retrieved.
-            )
-            # Check if we need to update the context.
-            (
-                update_context_case1,
-                update_context_case2,
-            ) = retriever._check_update_context(message)
-            if (
-                update_context_case1 or update_context_case2
-            ) and retriever.update_context:
-                retriever.problem = (
-                    message if not hasattr(retriever, "problem") else retriever.problem
-                )
-                _, ret_msg = retriever._generate_retrieve_user_reply(message)
-            else:
-                ret_msg = retriever.generate_init_message(message, n_results=n_results)
-            return ret_msg if ret_msg else message
-
-        for agent in [main_userprox, code_reviewer, coding_llm]:
-            # register functions for all agents.
-            agent.register_function(
-                function_map={
-                    "retrieve_content": retrieve_content,
-                }
-            )
-
-        manager = GroupChatManager(groupchat=groupchat)
-        main_userprox.initiate_chat(
-            manager,
-            message=task_description,
-        )
-
-        code_draft = ""
-        for iteration in range(15):
-            # Step 1: Retrieve relevant content
-            retrieved_content = retrieve_content(task_description)
-            manager.run_chat(retrieved_content)
-
-            # Step 2: Generate initial code based on the retrieved content and task description
-            if iteration == 0:
-                initial_code_prompt = f"Based on the following information: {retrieved_content}, create Python code to accomplish the task: {task_description}"
-                manager.send_message_to_group(initial_code_prompt, sender=main_userprox)
-                code_draft = coding_llm.generate_code(initial_code_prompt)
-            else:
-                refinement_prompt = f"Refine the following Python code based on the new information: {retrieved_content}\n\n{code_draft}"
-                manager.send_message_to_group(refinement_prompt, sender=main_userprox)
-                code_draft = coding_llm.refine_code(refinement_prompt)
-
-            # Step 3: Review the generated/refined code
-            review_prompt = f"Please review this Python code: {code_draft}"
-            manager.send_message_to_group(review_prompt, sender=main_userprox)
-            review_result = code_reviewer.review_code(review_prompt)
-
-            # Check if the code is satisfactory or needs further refinement
-            if code_reviewer.is_code_satisfactory(review_result):
-                break  # Exit loop if code is satisfactory
-
-            # Update the task description with review feedback for the next iteration
-            task_description = f"{task_description}\n\nFeedback: {review_result}"
-
-        # After the conversation rounds, retrieve the final generated code
-        final_code = code_draft  # The final version of the code after iterations
-
-        # Return the final code as part of the conversation result
-        return ConversationResult(
-            success=True,
-            messages=groupchat.messages,
-            cost=0,  # Update if cost calculation is needed
-            tokens=0,  # Update if token usage is tracked
-            last_message_str=final_code,
-            error_message="",
-        )
+        return generated_code
 
 
 if __name__ == "__main__":
@@ -384,4 +257,6 @@ if __name__ == "__main__":
         team_name="test",
         agents=curr_usage.create_research_team(),
         functions=functions.Functions,
-    ).arxiv2arxode(task_description="Agent tuning minimal example")
+    ).code_gen(
+        "Explain the newton method of solving equations for me and give me a minimal python implementation"
+    )

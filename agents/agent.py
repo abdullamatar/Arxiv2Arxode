@@ -1,15 +1,14 @@
 import asyncio
 import logging
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union, Any
 
 import nest_asyncio
 from autogen import AssistantAgent
 from autogen.agentchat.agent import Agent
+
 # from autogen.agentchat.agent import Agent
-from autogen.agentchat.contrib.retrieve_assistant_agent import \
-    RetrieveAssistantAgent
-from autogen.agentchat.contrib.retrieve_user_proxy_agent import \
-    RetrieveUserProxyAgent
+from autogen.agentchat.contrib.retrieve_assistant_agent import RetrieveAssistantAgent
+from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
 from autogen.agentchat.user_proxy_agent import UserProxyAgent
 
 import agents.agent_conf as agent_conf
@@ -26,6 +25,7 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
 
     def __init__(
         self,
+        collection_name: str,
         name="RetrieveChatAgent",  # default set to RetrieveChatAgent
         human_input_mode: Optional[str] = "ALWAYS",
         is_termination_msg: Optional[Callable[[Dict], bool]] = None,
@@ -35,7 +35,8 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         # TODO: cname as param to __init__ (datastore_name?), ef as well?
         self.embedding_function = get_embedding_func()
         self.dbconn = get_db_connection(
-            cname="init_vecdb", efunc=self.embedding_function
+            cname=collection_name if collection_name else "init_vecdb",
+            efunc=self.embedding_function,
         )
         super().__init__(
             name=name,
@@ -79,13 +80,24 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         # They need the docs as a list of lists...
         sim_score = [relevant_docs[i][1] for i in range(len(relevant_docs))]
         return {
-            "ids": [[i] for i in range(len(relevant_docs))],
+            "ids": [[i for i in range(len(relevant_docs))]],
             "documents": [[doc[0].page_content] for doc in relevant_docs],
             "metadatas": [
                 {**doc[0].metadata, "similarity_score": score}
                 for doc, score in zip(relevant_docs, sim_score)
             ],
         }
+
+    def generate_reply(
+        self,
+        messages: List[Dict] | None = None,
+        sender: Agent | None = None,
+        exclude: List[Callable[..., Any]] | None = None,
+    ) -> str | Dict | None:
+        return super().generate_reply(messages, sender, exclude)
+
+    # To modify the way to execute code blocks, single code block, or function call, override `execute_code_blocks`,
+    # `run_code`, and `execute_function` methods respectively.
 
     def retrieve_docs(
         self, problem: str, n_results: int = 4, search_string: str = None, **kwargs
@@ -107,7 +119,7 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         # print(results)
         # # TODO: The northern winds blow strong...
         self._results = results  # Why?: It is a class property; state repr i guess?
-        # return results
+        return results
 
     def get_content(self):
         return self._doc_contents
