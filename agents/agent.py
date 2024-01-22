@@ -1,14 +1,14 @@
 import asyncio
-import logging
-from typing import Callable, Dict, List, Optional, Union, Any
+# import logging
+from typing import Any, Callable, Dict, List, Optional
 
 import nest_asyncio
 from autogen import AssistantAgent
 from autogen.agentchat.agent import Agent
-
 # from autogen.agentchat.agent import Agent
-from autogen.agentchat.contrib.retrieve_assistant_agent import RetrieveAssistantAgent
-from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
+# from autogen.agentchat.contrib.retrieve_assistant_agent import RetrieveAssistantAgent
+from autogen.agentchat.contrib.retrieve_user_proxy_agent import \
+    RetrieveUserProxyAgent
 from autogen.agentchat.user_proxy_agent import UserProxyAgent
 
 import agents.agent_conf as agent_conf
@@ -16,20 +16,22 @@ from lib.embeddings import get_db_connection, get_embedding_func
 
 # U N D E R  C O N S T R U C T I O N
 # ◉_◉
-
-
 # self.register_reply(Agent, RetrieveUserProxyAgent._generate_retrieve_user_reply, position=2)
 # This agent by default must be triggered by another agent ^, from src
+
+
 class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
-    """Custom retriever agent that uses an embeddings database to retrieve relevant documents."""
+    """Custom retriever agent that uses an embeddings database to retrieve relevant docs."""
 
     def __init__(
         self,
         collection_name: str,
-        name="RetrieveChatAgent",  # default set to RetrieveChatAgent
+        name: str = "RetrieveChatAgent",
         human_input_mode: Optional[str] = "ALWAYS",
-        is_termination_msg: Optional[Callable[[Dict], bool]] = None,
-        retrieve_config: Optional[Dict] = None,  # config for the retrieve agent
+        is_termination_msg: Optional[Callable[[Dict[str, Any]], bool]] = None,
+        retrieve_config: Optional[
+            Dict[str, str]
+        ] = None,  # config for the retrieve agent
         **kwargs,
     ):
         # TODO: cname as param to __init__ (datastore_name?), ef as well?
@@ -45,21 +47,6 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
             retrieve_config=retrieve_config,
             **kwargs,
         )
-
-    # async def a_receive(
-    #     self,
-    #     message: Dict | str,
-    #     sender: Agent,
-    #     request_reply: bool | None = None,
-    #     silent: bool | None = False,
-    # ):
-    #     logging.info(f"EmbeddingRetrieverAgent received message from {sender.name}")
-    #     if sender.name == "coordinator" and "Retrieve relevant documents" in message:
-    #         problem = message.replace("Retrieve relevant documents for: ", "")
-    #         logging.info(f"Retrieving documents for problem: {problem}")
-    #         retrieved_content = await self.retrieve_docs(problem)  # Ensure async call
-    #         logging.info(f"Retrieved content: {retrieved_content}")
-    #     return super().a_receive(message, sender, request_reply, silent)
 
     def query_vector_db(
         self,
@@ -88,19 +75,8 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
             ],
         }
 
-    def generate_reply(
-        self,
-        messages: List[Dict] | None = None,
-        sender: Agent | None = None,
-        exclude: List[Callable[..., Any]] | None = None,
-    ) -> str | Dict | None:
-        return super().generate_reply(messages, sender, exclude)
-
-    # To modify the way to execute code blocks, single code block, or function call, override `execute_code_blocks`,
-    # `run_code`, and `execute_function` methods respectively.
-
     def retrieve_docs(
-        self, problem: str, n_results: int = 4, search_string: str = None, **kwargs
+        self, problem: str, n_results: int = 4, search_string: str = "", **kwargs
     ):
         """
         Args:
@@ -123,6 +99,32 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
 
     def get_content(self):
         return self._doc_contents
+
+    def generate_reply(
+        self,
+        messages: List[Dict[str, str]] | None = None,
+        sender: Agent | None = None,
+        exclude: List[Callable[..., Any]] | None = None,
+    ) -> str | Dict | None:
+        return super().generate_reply(messages, sender, exclude)
+
+    # To modify the way to execute code blocks, single code block, or function call, override `execute_code_blocks`,
+    # `run_code`, and `execute_function` methods respectively.
+
+    # async def a_receive(
+    #     self,
+    #     message: Dict | str,
+    #     sender: Agent,
+    #     request_reply: bool | None = None,
+    #     silent: bool | None = False,
+    # ):
+    #     logging.info(f"EmbeddingRetrieverAgent received message from {sender.name}")
+    #     if sender.name == "coordinator" and "Retrieve relevant documents" in message:
+    #         problem = message.replace("Retrieve relevant documents for: ", "")
+    #         logging.info(f"Retrieving documents for problem: {problem}")
+    #         retrieved_content = await self.retrieve_docs(problem)  # Ensure async call
+    #         logging.info(f"Retrieved content: {retrieved_content}")
+    #     return super().a_receive(message, sender, request_reply, silent)
 
 
 async def non_existent_async_func():

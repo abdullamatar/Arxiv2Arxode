@@ -1,16 +1,13 @@
 from typing import Any, Dict, List
 
-from autogen import (
-    AssistantAgent,
-    ConversableAgent,
-    GroupChat,
-    GroupChatManager,
-    UserProxyAgent,
-)
-from autogen.agentchat.contrib.retrieve_assistant_agent import RetrieveAssistantAgent
+from autogen import (AssistantAgent, ConversableAgent, GroupChat,
+                     GroupChatManager, UserProxyAgent)
+from autogen.agentchat.contrib.retrieve_assistant_agent import \
+    RetrieveAssistantAgent
 
 from agents.agent import EmbeddingRetrieverAgent
-from agents.agent_conf import base_cfg, exec_py_conf, retrieve_conf, write_file_config
+from agents.agent_conf import (base_cfg, exec_py_conf, retrieve_conf,
+                               write_file_config)
 from agents.functions import Functions
 
 """
@@ -43,12 +40,13 @@ termination_msg = (
 
 
 def create_research_team() -> List[ConversableAgent]:
+    # TODO: role def, assAgent for function/tool selection, user prox for eval() https://microsoft.github.io/autogen/docs/Use-Cases/agent_chat/#enhanced-inference
     agent0 = UserProxyAgent(
         name="main_userproxy",
         human_input_mode="NEVER",
         code_execution_config=False,
         description="Your role is to coordinate the completion of tasks related to generating code based off of machine learning and AI research. You must be diligent and operate in a step by step manner, make use of all the agents at your disposal.",
-        llm_config=base_cfg,
+        # llm_config=base_cfg,
     )
 
     retriever = EmbeddingRetrieverAgent(
@@ -56,8 +54,8 @@ def create_research_team() -> List[ConversableAgent]:
         human_input_mode="NEVER",
         description="A retrieval augmented agent whose role is to retrieve additional information when asked, you can access an embeddings database with information related to code and research papers.",
         code_execution_config=False,
-        collection_name="test_embeddings",
-        # llm_config=base_cfg,
+        collection_name="init_vecdb",
+        llm_config=base_cfg,
         retrieve_config={
             "task": "qa",
             "client": "psycopg2",
@@ -74,7 +72,7 @@ def create_research_team() -> List[ConversableAgent]:
     )
     agent3 = AssistantAgent(
         name="coding_agent",
-        description="A coding agent that is tasked with iteratively generating code based off of the information provided by the retrieval agent and the code designer agent.",
+        description="A coding agent that is tasked with iteratively generating code based off of the information provided by the retrieval agent and the code designer agent. Always save the code you generate to a file, and make sure it is executable. Change the name of the file to reflect the current iteration of the code.",
         code_execution_config={"work_dir": "./sandbox", "use_docker": False},
         # function_map={
         #     "execute_and_save": execute_and_save,
@@ -91,53 +89,8 @@ def create_research_team() -> List[ConversableAgent]:
 # rc: https://microsoft.github.io/autogen/blog/2023/10/18/RetrieveChat/
 
 
-def _reset_agents(agents: List[ConversableAgent]) -> None:
-    [agent.reset() for agent in agents]
-
-
-def init_rag_gc(problem) -> None:
-    agent0, retriever, agent2, agent3 = create_research_team()
-    _reset_agents([agent0, retriever, agent2, agent3])
-    groupchat = GroupChat(
-        agents=[agent0, agent2, agent3],
-        messages=[],
-        max_round=44,
-        speaker_selection_method="auto",
-    )
-
-    def retrieve_content(
-        message, n_results=7, retriever: EmbeddingRetrieverAgent = retriever
-    ):
-        retriever.n_results = n_results  # Set the number of results to be retrieved.
-        # Check if we need to update the context.
-        update_context_case1, update_context_case2 = retriever._check_update_context(
-            message
-        )
-        if (update_context_case1 or update_context_case2) and retriever.update_context:
-            retriever.problem = (
-                message if not hasattr(retriever, "problem") else retriever.problem
-            )
-            _, ret_msg = retriever._generate_retrieve_user_reply(message)
-        else:
-            ret_msg = retriever.generate_init_message(message, n_results=n_results)
-        return ret_msg if ret_msg else message
-
-    for agent in [agent0, agent2, agent3]:
-        # register functions for all agents.
-        agent.register_function(
-            function_map={
-                "retrieve_content": retrieve_content,
-            }
-        )
-
-    manager = GroupChatManager(groupchat=groupchat, llm_config=base_cfg)
-    agent0.initiate_chat(
-        manager,
-        message=problem,
-    )
-
-
 if __name__ == "__main__":
+    exit()
     init_rag_gc(problem=PROBLEM)
     # from agents.coordinator import Coordinator
     # from agents.functions import Functions

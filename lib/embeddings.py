@@ -18,11 +18,11 @@ openaikey = os.environ.get("OPENAI_APIKEY")
 
 CONNECTION_STRING = PGVector.connection_string_from_db_params(
     driver=os.environ.get("PGVECTOR_DRIVER", "psycopg2"),
-    host=os.environ.get("PGV_HOST"),
-    port=int(os.environ.get("PGV_PORT")),
-    database=os.environ.get("PGV_DATABASE"),
-    user=os.environ.get("PGV_USER"),
-    password=os.environ.get("PGV_PASSWORD"),
+    host=os.environ.get("PGV_HOST", ""),
+    port=int(os.environ.get("PGV_PORT", "")),
+    database=os.environ.get("PGV_DATABASE", ""),
+    user=os.environ.get("PGV_USER", ""),
+    password=os.environ.get("PGV_PASSWORD", ""),
 )
 
 
@@ -51,10 +51,16 @@ def get_embedding_func(model: str = "text-embedding-ada-002") -> Embeddings:
     return OpenAIEmbeddings(openai_api_key=openaikey, model=model)
 
 
-def get_db_connection(cname, efunc: str | None = None) -> VectorStore:
+def get_db_connection(cname: str, efunc: Embeddings | None = None) -> VectorStore:
     """
     Get the database connection, given collection name.
     """
+    assert PGVector(
+        connection_string=CONNECTION_STRING,
+        collection_name=cname,
+        embedding_function=efunc if efunc else get_embedding_func(),
+    ).similarity_search("test"), "Invalid collection name or connection string."
+
     return PGVector(
         connection_string=CONNECTION_STRING,
         collection_name=cname,

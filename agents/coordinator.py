@@ -4,14 +4,13 @@ from dataclasses import asdict, dataclass
 from typing import List, Optional, Tuple
 
 import autogen
-from autogen import GroupChat, GroupChatManager
+from autogen import ConversableAgent, GroupChat, GroupChatManager
 
 import agents.functions as functions
-
 # TODO: Change curr_usage to actual lib file
 import lib.curr_usage as curr_usage
-from agents.agent_conf import retrieve_conf, base_cfg
 from agents.agent import EmbeddingRetrieverAgent
+from agents.agent_conf import base_cfg, retrieve_conf
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -210,53 +209,116 @@ class Coordinator:
             return self.validate_results_func()
         return True, ""
 
+    def _reset_agents(self, agents: List[ConversableAgent]) -> None:
+        [agent.reset() for agent in agents]
+
+    def code_gen_group_chat(self, prompt: str) -> ConversationResult:
+        """
+        Run a group chat with the agents and generate code
+        """
+        self._reset_agents(self.agents)
+        main_uprox, retriever, code_review, coding_llm = self.agents
+        gc = GroupChat(
+            agents=[main_uprox, code_review, coding_llm],
+            messages=[],
+            max_round=44,
+            speaker_selection_method="auto",
+        )
+
+        def retrieve_content(
+            message, n_results=7, retriever: ConversableAgent = retriever
+        ) -> str:
+            retriever.n_results = n_results
+
+            (
+                update_context_case1,
+                update_context_case2,
+            ) = retriever._check_update_context(message)
+
+            if (
+                update_context_case1 or update_context_case2
+            ) and retriever.update_context:
+                retriever.problem = (
+                    message if not hasattr(retriever, "problem") else retriever.problem
+                )
+                _, ret_msg = retriever._generate_retrieve_user_reply(message)
+            else:
+                ret_msg = retriever.generate_init_message(message, n_results=n_results)
+            return ret_msg if ret_msg else message
+
+        for agent in [main_uprox, code_review, coding_llm]:
+            # register functions for all agents.
+            agent.register_function(
+                function_map={
+                    "retrieve_content": retrieve_content,
+                }
+            )
+        gcman = GroupChatManager(groupchat=gc, llm_config=base_cfg)
+        main_uprox.initiate_chat(
+            gcman,
+            message=prompt,
+        )
+
     def code_gen(self, task_description: str) -> ConversationResult:
+        generated_code = ""
+        self.store_msg(task_description)
         for _ in range(15):
             for idx, agent in enumerate(self.agents):
+                next_agent = self.agents[idx + 1]
                 if isinstance(agent, EmbeddingRetrieverAgent):
-                    retrieved_docs = agent.retrieve_docs(task_description, n_results=13)
-                    retrieved_info = (
-                        "\n\n".join([doc[0] for doc in retrieved_docs["documents"]])
-                        if "documents" in retrieved_docs
-                        else ""
-                    )
-                    self.agents[idx + 1].send({"content": retrieved_info}, agent)
+                    retrieved_info = agent.retrieve_docs(task_description, n_results=4)[
+                        "documents"
+                    ]
+
+                    retrieved_info = " ".join([s for xs in retrieved_info for s in xs])
+                    assert retrieved_info, "No documents retrieved"
+                    self.basic_chat(agent, next_agent, retrieved_info)
+                    exit(931292931939)
 
                 elif isinstance(agent, autogen.UserProxyAgent):
-                    next_agent = self.agents[idx + 1]
                     last_message = agent.last_message()
-                    if last_message is not None:
-                        next_agent.send(last_message, agent)
 
+                    if not last_message:
+                        self.basic_chat(
+                            agent,
+                            next_agent,
+                            task_description,
+                        ) if not isinstance(
+                            next_agent, EmbeddingRetrieverAgent
+                        ) else self.basic_chat(
+                            agent,
+                            next_agent,
+                            task_description
+                            + "\ngenerate a query related to the above task so that documents may be retrieved",
+                        )
                 elif isinstance(agent, autogen.AssistantAgent):
-                    # Assuming generate_code_execution_reply returns a string with code
-                    code_generation_response = agent.generate_code_execution_reply(
-                        current_query
+                    code_generation_response_tuple = (
+                        agent.generate_code_execution_reply(current_query)
                     )
-                    if code_generation_response is not None:
+                    if code_generation_response_tuple[0]:
+                        code_generation_response = code_generation_response_tuple[1]
                         generated_code += code_generation_response + "\n\n"
                         current_query = code_generation_response
+                    else:
+                        break
 
-        return generated_code
+        self.log_curr_state()
+        print(generated_code)
+        return ConversationResult(
+            success=True,
+            messages=self.chats,
+            cost=0,
+            tokens=0,
+            last_message_str=generated_code,
+            error_message="",
+        )
 
 
 if __name__ == "__main__":
-    # coordinator = Coordinator(
-    #     team_name="test",
-    #     agents=curr_usage.create_research_team(),
-    #     # agents=[
-    #     #     autogen.ConversableAgent(name="agent1"),
-    #     #     autogen.ConversableAgent(name="agent2"),
-    #     #     autogen.ConversableAgent(name="agent3"),
-    #     # ],
-    #     functions=functions.Functions,
-    # )
-
-    # coordinator.sequential_conversation(prompt="Create a random python function")
     Coordinator(
         team_name="test",
         agents=curr_usage.create_research_team(),
         functions=functions.Functions,
     ).code_gen(
-        "Explain the newton method of solving equations for me and give me a minimal python implementation"
+        "Implement an evaluation file using MMLU and hugging face that uses an idea from the agent tuning paper."
     )
