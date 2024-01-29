@@ -1,14 +1,15 @@
 import asyncio
+
 # import logging
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import nest_asyncio
 from autogen import AssistantAgent
 from autogen.agentchat.agent import Agent
+
 # from autogen.agentchat.agent import Agent
 # from autogen.agentchat.contrib.retrieve_assistant_agent import RetrieveAssistantAgent
-from autogen.agentchat.contrib.retrieve_user_proxy_agent import \
-    RetrieveUserProxyAgent
+from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
 from autogen.agentchat.user_proxy_agent import UserProxyAgent
 
 import agents.agent_conf as agent_conf
@@ -80,9 +81,9 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
     ):
         """
         Args:
-            problem (str): the problem to be solved.
-            n_results (int): the number of results to be retrieved. Default is 20.
-            search_string (str): only docs that contain an exact match of this string will be retrieved. Default is "".
+            problem: the problem to be solved.
+            n_results: the number of results to be retrieved. Default is 20.
+            search_string: only docs that contain an exact match of this string will be retrieved. Default is "".
         """
         results = self.query_vector_db(
             query_texts=problem,
@@ -95,10 +96,15 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         # print(results)
         # # TODO: The northern winds blow strong...
         self._results = results  # Why?: It is a class property; state repr i guess?
-        return results
+        # return results
 
     def get_content(self):
         return self._doc_contents
+
+    def generate_init_message(
+        self, problem: str, n_results: int = 20, search_string: str = ""
+    ):
+        return super().generate_init_message(problem, n_results, search_string)
 
     def generate_reply(
         self,
@@ -107,6 +113,14 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         exclude: List[Callable[..., Any]] | None = None,
     ) -> str | Dict | None:
         return super().generate_reply(messages, sender, exclude)
+
+    def _generate_retrieve_user_reply(
+        self,
+        messages: List[Dict] | None = None,
+        sender: Agent | None = None,
+        config: Any | None = None,
+    ) -> Tuple[bool, str | Dict | None]:
+        return super()._generate_retrieve_user_reply(messages, sender, config)
 
     # To modify the way to execute code blocks, single code block, or function call, override `execute_code_blocks`,
     # `run_code`, and `execute_function` methods respectively.

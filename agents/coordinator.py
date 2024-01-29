@@ -7,6 +7,7 @@ import autogen
 from autogen import ConversableAgent, GroupChat, GroupChatManager
 
 import agents.functions as functions
+
 # TODO: Change curr_usage to actual lib file
 import lib.curr_usage as curr_usage
 from agents.agent import EmbeddingRetrieverAgent
@@ -141,21 +142,6 @@ class Coordinator:
 
         self.store_msg(reply)
 
-    def mem_chat(
-        self,
-        agent_a: autogen.ConversableAgent,
-        agent_b: autogen.ConversableAgent,
-        message: str,
-    ):
-        logger.info(f"mem_chat: {agent_a.name} -> {agent_b.name}")
-        self.send_msg(agent_a, agent_b, message)
-
-        reply = agent_b.generate_reply(sender=agent_a)
-
-        # ???????
-        self.send_msg(agent_b, agent_a, reply)
-        self.store_msg(reply)
-
     def function_chat(
         self,
         agent_a: autogen.ConversableAgent,
@@ -221,7 +207,7 @@ class Coordinator:
         gc = GroupChat(
             agents=[main_uprox, code_review, coding_llm],
             messages=[],
-            max_round=44,
+            max_round=20,
             speaker_selection_method="auto",
         )
 
@@ -283,26 +269,18 @@ class Coordinator:
                             agent,
                             next_agent,
                             task_description,
-                        ) if not isinstance(
-                            next_agent, EmbeddingRetrieverAgent
-                        ) else self.basic_chat(
-                            agent,
-                            next_agent,
-                            task_description
-                            + "\ngenerate a query related to the above task so that documents may be retrieved",
                         )
-                elif isinstance(agent, autogen.AssistantAgent):
+                    else:
+                        self.basic_chat(agent, next_agent, last_message)
+
                     code_generation_response_tuple = (
-                        agent.generate_code_execution_reply(current_query)
+                        agent.generate_code_execution_reply(self.latest_message)
                     )
                     if code_generation_response_tuple[0]:
                         code_generation_response = code_generation_response_tuple[1]
                         generated_code += code_generation_response + "\n\n"
-                        current_query = code_generation_response
-                    else:
-                        break
 
-        self.log_curr_state()
+            self.log_curr_state()
         print(generated_code)
         return ConversationResult(
             success=True,
