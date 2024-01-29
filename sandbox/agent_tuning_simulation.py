@@ -2,6 +2,7 @@
 
 import random
 
+
 # Simulate a very basic agent interaction environment
 class SimulatedAgentEnvironment:
     def __init__(self):

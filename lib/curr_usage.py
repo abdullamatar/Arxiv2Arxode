@@ -1,16 +1,13 @@
 from typing import Any, Dict, List
 
-from autogen import (
-    AssistantAgent,
-    ConversableAgent,
-    GroupChat,
-    GroupChatManager,
-    UserProxyAgent,
-)
-from autogen.agentchat.contrib.retrieve_assistant_agent import RetrieveAssistantAgent
+from autogen import (AssistantAgent, ConversableAgent, GroupChat,
+                     GroupChatManager, UserProxyAgent)
+from autogen.agentchat.contrib.retrieve_assistant_agent import \
+    RetrieveAssistantAgent
 
 from agents.agent import EmbeddingRetrieverAgent
-from agents.agent_conf import base_cfg, exec_py_conf, retrieve_conf, write_file_config
+from agents.agent_conf import (base_cfg, exec_py_conf, retrieve_conf,
+                               write_file_config)
 from agents.functions import Functions
 
 """

@@ -7,7 +7,6 @@ import autogen
 from autogen import ConversableAgent, GroupChat, GroupChatManager
 
 import agents.functions as functions
-
 # TODO: Change curr_usage to actual lib file
 import lib.curr_usage as curr_usage
 from agents.agent import EmbeddingRetrieverAgent
