@@ -1,7 +1,0 @@
-# ignore this file for now...
-title = "Model config"
-
-[model]
-name = ""
-path = ""
-temperature = 1.0

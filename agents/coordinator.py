@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from dataclasses import asdict, dataclass
@@ -15,6 +16,8 @@ from agents.agent_conf import base_cfg, retrieve_conf
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     level=logging.INFO,
+    filename="logs/coordinator.log",
+    format="%(asctime)s  👁‍🗨  %(levelname)s  👁‍🗨  :\n%(message)s",
 )
 
 # This class is adapted from: https://github.com/disler/multi-agent-postgres-data-analytics/blob/v10-talk-to-your-database-beta-launch/postgres_da_ai_agent/modules/orchestrator.py
@@ -47,7 +50,6 @@ class Coordinator:
         team_name: str,
         agents: List[autogen.ConversableAgent],
         functions: functions.Functions,
-        validate_results_func: callable = None,
     ):
         self.team_name = team_name
         self.agents = agents
@@ -56,148 +58,12 @@ class Coordinator:
         # List of chats - {sender, receiver, message}
         self.chats: List[Chat] = []
 
-        self.validate_results_func: callable = validate_results_func
-
         assert len(self.agents) > 1, "Must have at least 2 agents"
-
-    @property
-    def total_agents(self):
-        return len(self.agents)
-
-    @property
-    def last_message_is_dict(self):
-        return isinstance(self.messages[-1], dict)
-
-    @property
-    def last_message_is_string(self):
-        return isinstance(self.messages[-1], str)
-
-    @property
-    def last_message_is_func_call(self):
-        return self.last_message_is_dict and self.latest_message.get(
-            "function_call", None
-        )
-
-    @property
-    def last_message_is_content(self):
-        return self.last_message_is_dict and self.latest_message.get("content", None)
-
-    @property
-    def latest_message(self) -> Optional[str]:
-        if not self.messages:
-            return None
-        return self.messages[-1]
-
-    @property
-    def last_message_as_string(self):
-        if not self.messages:
-            return ""
-        if self.last_message_is_content:
-            return self.latest_message.get("content", "")
-        return str(self.messages[-1])
-
-    def send_msg(
-        self,
-        from_agent: autogen.ConversableAgent,
-        to_agent: autogen.ConversableAgent,
-        msg: str,
-    ):
-        from_agent.send(msg, to_agent)
-        self.chats.append(Chat(from_agent.name, to_agent.name, str(msg)))
-
-    def store_msg(self, msg):
-        self.messages.append(msg)
-
-    def get_msg(self) -> str:
-        str_msg = ""
-        for m in self.messages:
-            if m is None:
-                continue
-            elif isinstance(m, dict):
-                dict_content = m.get("content", None)
-                func_call = m.get("function_call", None)
-                content = dict_content or func_call
-                if content:
-                    str_msg += content
-                elif content is None:
-                    continue
-            elif isinstance(m, str):
-                str_msg += str(m)
-        return str_msg
-
-    def basic_chat(
-        self,
-        agent_a: autogen.ConversableAgent,
-        agent_b: autogen.ConversableAgent,
-        message: str,
-    ):
-        logger.info(
-            f"basic_chat triggered with agents: {agent_a.name} -> {agent_b.name} and \
-                    message: {message}"
-        )
-        self.send_msg(agent_a, agent_b, message)
-
-        reply = agent_b.generate_reply(sender=agent_a)
-
-        self.store_msg(reply)
-
-    def function_chat(
-        self,
-        agent_a: autogen.ConversableAgent,
-        agent_b: autogen.ConversableAgent,
-        message: str,
-    ):
-        logger.info(f"function_call(): {agent_a.name} -> {agent_b.name}")
-
-        self.basic_chat(agent_a, agent_a, message)
-
-        assert self.last_message_is_content, "No content in last message"
-
-        self.basic_chat(agent_a, agent_b, self.latest_message)
-
-    def self_function_chat(self, agent: autogen.ConversableAgent, message: str):
-        logger.info(f"self_function_chat(): {agent.name} -> {agent.name}")
-
-        self.send_msg(agent, agent, message)
-
-        reply = agent.generate_reply(sender=agent)
-
-        self.send_msg(agent, agent, message)
-
-        self.store_msg(reply)
-
-        logger.info(f"self_function_chat(): replied with:", reply)
-
-    def log_curr_state(self, append_to_file: bool = True):
-        conversations = []
-
-        for chat in self.chats:
-            conversations.append(asdict(chat))
-
-        if append_to_file:
-            self.functions.write_file(
-                fname=f"{self.team_name}_conversations.json",
-                content=json.dumps(conversations, indent=4),
-            )
-
-    def has_functions(self, agent: autogen.ConversableAgent):
-        return len(agent._function_map) > 0
-
-    def get_cost_and_tokens(self):
-        return -4, -4
-
-    def handle_validate_func(self) -> Tuple[bool, str]:
-        """
-        Run the validate_results_func if it exists
-        """
-        if self.validate_results_func:
-            return self.validate_results_func()
-        return True, ""
 
     def _reset_agents(self, agents: List[ConversableAgent]) -> None:
         [agent.reset() for agent in agents]
 
-    def code_gen_group_chat(self, prompt: str) -> ConversationResult:
+    async def a_code_gen_group_chat(self, prompt: str) -> None:
         """
         Run a group chat with the agents and generate code
         """
@@ -206,12 +72,21 @@ class Coordinator:
         gc = GroupChat(
             agents=[main_uprox, code_review, coding_llm],
             messages=[],
-            max_round=20,
+            max_round=50,
             speaker_selection_method="auto",
         )
 
+        @main_uprox.register_for_execution()
+        @code_review.register_for_llm(
+            description="Retrieve additional information to complete the given task. Create a detailed query so that the retrieval is impactful in terms of information gained."
+        )
+        @coding_llm.register_for_llm(
+            description="Retrieve additional information to complete the given task. Create a detailed query so that the retrieval is impactful in terms of information gained."
+        )
         def retrieve_content(
-            message, n_results=7, retriever: ConversableAgent = retriever
+            message: str,
+            n_results: int = 7,
+            # retriever: ConversableAgent = retriever,
         ) -> str:
             retriever.n_results = n_results
 
@@ -231,71 +106,112 @@ class Coordinator:
                 ret_msg = retriever.generate_init_message(message, n_results=n_results)
             return ret_msg if ret_msg else message
 
-        for agent in [main_uprox, code_review, coding_llm]:
-            # register functions for all agents.
-            agent.register_function(
-                function_map={
-                    "retrieve_content": retrieve_content,
-                }
-            )
+        # for agent in [code_review, coding_llm]:
+        #     if isinstance(agent, autogen.AssistantAgent):
+        #         logger.info(f"updating llm_config for {agent.name}")
+        #         agent.llm_config.update(retrieve_conf)
+
+        logger.info(
+            f"agent confs: {json.dumps(code_review.llm_config, indent=4)}\n {json.dumps(coding_llm.llm_config, indent=4)}\n {json.dumps(main_uprox.llm_config, indent=4)}\n {json.dumps(retriever.llm_config, indent=4)}"
+        )
+        # agent.register_function(
+        #     function_map={
+        #         "retrieve_content": retrieve_content,
+        #     }
+        # )
+
         gcman = GroupChatManager(groupchat=gc, llm_config=base_cfg)
+        await main_uprox.a_initiate_chat(
+            gcman,
+            message=prompt,
+        )
+        logger.info(f"Entire msg history: {gcman.chat_messages}")
+
+    def code_gen_group_chat(self, prompt: str, epochs: int = 5) -> ConversationResult:
+        """
+        Run a group chat with the agents and generate code
+        """
+        self._reset_agents(self.agents)
+        main_uprox, retriever, code_review, coding_llm = self.agents
+        # for idx in range(epochs):
+        #     break
+
+        gc = GroupChat(
+            agents=[main_uprox, code_review, coding_llm],
+            messages=[],
+            max_round=5,
+            speaker_selection_method="auto",
+        )
+
+        @main_uprox.register_for_execution()
+        @code_review.register_for_llm(
+            description="Retrieve additional information to complete the given task. Create a detailed query so that the retrieval is impactful in terms of information gained."
+        )
+        @coding_llm.register_for_llm(
+            description="Retrieve additional information to complete the given task. Create a detailed query so that the retrieval is impactful in terms of information gained."
+        )
+        def retrieve_content(
+            message: str,
+            n_results: int = 7,
+            # retriever: ConversableAgent = retriever,
+        ) -> str:
+            retriever.n_results = n_results
+
+            (
+                update_context_case1,
+                update_context_case2,
+            ) = retriever._check_update_context(message)
+
+            if (
+                update_context_case1 or update_context_case2
+            ) and retriever.update_context:
+                retriever.problem = (
+                    message if not hasattr(retriever, "problem") else retriever.problem
+                )
+                _, ret_msg = retriever._generate_retrieve_user_reply(message)
+            else:
+                ret_msg = retriever.generate_init_message(message, n_results=n_results)
+            return ret_msg if ret_msg else message
+
+        # for agent in [code_review, coding_llm]:
+        #     if isinstance(agent, autogen.AssistantAgent):
+        #         logger.info(f"updating llm_config for {agent.name}")
+        #         agent.llm_config.update(retrieve_conf)
+        logger.info(
+            f"agent confs: {json.dumps(code_review.llm_config, indent=4)}\n {json.dumps(coding_llm.llm_config, indent=4)}\n {json.dumps(main_uprox.llm_config, indent=4)}\n {json.dumps(retriever.llm_config, indent=4)}"
+        )
+        # agent.register_function(
+        #     function_map={
+        #         "retrieve_content": retrieve_content,
+        #     }
+        # )
+
+        gcman = GroupChatManager(groupchat=gc, llm_config=base_cfg)
+        # self._groupchat_manager = gcman
         main_uprox.initiate_chat(
             gcman,
             message=prompt,
         )
-
-    def code_gen(self, task_description: str) -> ConversationResult:
-        generated_code = ""
-        self.store_msg(task_description)
-        for _ in range(15):
-            for idx, agent in enumerate(self.agents):
-                next_agent = self.agents[idx + 1]
-                if isinstance(agent, EmbeddingRetrieverAgent):
-                    retrieved_info = agent.retrieve_docs(task_description, n_results=4)[
-                        "documents"
-                    ]
-
-                    retrieved_info = " ".join([s for xs in retrieved_info for s in xs])
-                    assert retrieved_info, "No documents retrieved"
-                    self.basic_chat(agent, next_agent, retrieved_info)
-                    exit(931292931939)
-
-                elif isinstance(agent, autogen.UserProxyAgent):
-                    last_message = agent.last_message()
-
-                    if not last_message:
-                        self.basic_chat(
-                            agent,
-                            next_agent,
-                            task_description,
-                        )
-                    else:
-                        self.basic_chat(agent, next_agent, last_message)
-
-                    code_generation_response_tuple = (
-                        agent.generate_code_execution_reply(self.latest_message)
-                    )
-                    if code_generation_response_tuple[0]:
-                        code_generation_response = code_generation_response_tuple[1]
-                        generated_code += code_generation_response + "\n\n"
-
-            self.log_curr_state()
-        print(generated_code)
-        return ConversationResult(
-            success=True,
-            messages=self.chats,
-            cost=0,
-            tokens=0,
-            last_message_str=generated_code,
-            error_message="",
-        )
+        logger.info(f"chat_messages: {gcman.chat_messages}")
+        logger.info(f"gcman last message: {gcman.last_message}")
+        logger.info(f"Entire msg history: {gcman.chat_messages}")
 
 
 if __name__ == "__main__":
+    # asyncio.run(
+    #     Coordinator(
+    #         team_name="test",
+    #         agents=curr_usage.create_research_team(),
+    #         functions=functions.Functions,
+    #     ).a_code_gen_group_chat(
+    #         "Recreate a minimal concept from the agent tuning paper for me in a self-contained python file. Start by exploring the paper and codebase via the infohoarder."
+    #     )
+    # )
+
     Coordinator(
         team_name="test",
         agents=curr_usage.create_research_team(),
         functions=functions.Functions,
-    ).code_gen(
-        "Implement an evaluation file using MMLU and hugging face that uses an idea from the agent tuning paper."
+    ).code_gen_group_chat(
+        "Explain a concept from the agent tuning paper for me. Show me how they evaluated a LLM using some hugging face dataset, I want to end up with a self-contained python file."
     )

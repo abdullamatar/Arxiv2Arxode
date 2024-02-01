@@ -1,6 +1,7 @@
 import asyncio
+import random
 # import logging
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
 import nest_asyncio
 from autogen import AssistantAgent
@@ -93,7 +94,7 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
             **kwargs,
         )
         # print(results)
-        # # TODO: The northern winds blow strong...
+        # TODO: The northern winds blow strong...
         self._results = results  # Why?: It is a class property; state repr i guess?
         # return results
 
@@ -138,6 +139,38 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
     #         retrieved_content = await self.retrieve_docs(problem)  # Ensure async call
     #         logging.info(f"Retrieved content: {retrieved_content}")
     #     return super().a_receive(message, sender, request_reply, silent)
+
+
+class CodingAssistant(AssistantAgent):
+    # https://github.com/microsoft/autogen/blob/main/notebook/agentchat_auto_feedback_from_code_execution.ipynb
+    def __init__(
+        self,
+        name: str,
+        system_message: str | None = None,
+        llm_config: Optional[Union[Dict, Literal[False]]] = None,
+        is_termination_msg: Callable[[Dict], bool] | None = None,
+        max_consecutive_auto_reply: int | None = None,
+        human_input_mode: str | None = "NEVER",
+        code_execution_config: Dict | Literal[False] | None = False,
+        description: str | None = None,
+        **kwargs,
+    ):
+        super().__init__(
+            name,
+            llm_config=llm_config,
+            # is_termination_msg,
+            # max_consecutive_auto_reply,
+            # human_input_mode,
+            # code_execution_config,
+            # description,
+            **kwargs,
+        )
+
+    def run_code(self, code, **kwargs):
+        filename = f"code_gen_{random.randint(0, 1000)}"
+        with open(f"sandbox/{filename}.py", "w") as f:
+            f.write(code)
+        return super().run_code(code, **kwargs)
 
 
 async def non_existent_async_func():
