@@ -1,17 +1,15 @@
 import asyncio
+import logging
 import random
-
 # import logging
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
-import logging
 import nest_asyncio
-from autogen import AssistantAgent
+from autogen import AssistantAgent, GroupChatManager
 from autogen.agentchat.agent import Agent
-
-from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
+from autogen.agentchat.contrib.retrieve_user_proxy_agent import \
+    RetrieveUserProxyAgent
 from autogen.agentchat.user_proxy_agent import UserProxyAgent
-from autogen import GroupChatManager
 
 import agents.agent_conf as agent_conf
 from lib.embeddings import get_db_connection, get_embedding_func
