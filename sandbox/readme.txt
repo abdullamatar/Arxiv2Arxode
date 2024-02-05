@@ -1,1 +1,1 @@
-All the files in this directory are outputted by LLMs
+All the files in this directory are created by LLMs
