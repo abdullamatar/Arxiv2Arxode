@@ -4,7 +4,15 @@ import os
 
 config_list = [
     {
+        "model": "gpt-4-0125-preview",
+        "api_key": os.environ.get("OPENAI_APIKEY"),
+    },
+    {
         "model": "gpt-4-1106-preview",
+        "api_key": os.environ.get("OPENAI_APIKEY"),
+    },
+    {
+        "model": "gpt-4",
         "api_key": os.environ.get("OPENAI_APIKEY"),
     },
     {

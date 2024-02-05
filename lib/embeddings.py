@@ -1,4 +1,5 @@
 # TODO: Py03 rs bindings for file manip?
+# TODO: Dockerize pgvector, docker image for code execve
 # import pypdf
 import os
 from typing import List, Optional

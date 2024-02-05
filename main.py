@@ -27,7 +27,7 @@ non_profit_ai_company = os.environ.get("OPENAI_APIKEY")
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s  👁‍🗨  %(levelname)s  👁‍🗨  : \n%(message)s",
+    format="%(asctime)s  👁‍🗨  %(levelname)s  👁‍🗨  :\n%(message)s",
 )
 
 llm = ChatOpenAI(n=4, openai_api_key=non_profit_ai_company, model="gpt-4-1106-preview")
@@ -50,6 +50,7 @@ def r():
 def mqr(query: str):
     """Multi-query retrieval"""
     vector_store = get_db_connection(cname="init_vecdb")
+    # TODO: Consider
     retriever_model = MultiQueryRetriever.from_llm(
         llm=llm, retriever=vector_store.as_retriever()
     )

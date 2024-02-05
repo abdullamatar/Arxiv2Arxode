@@ -20,8 +20,6 @@ logging.basicConfig(
     format="%(asctime)s  👁‍🗨  %(levelname)s  👁‍🗨  :\n%(message)s",
 )
 
-# This class is adapted from: https://github.com/disler/multi-agent-postgres-data-analytics/blob/v10-talk-to-your-database-beta-launch/postgres_da_ai_agent/modules/orchestrator.py
-
 
 @dataclass
 class Chat:
@@ -139,24 +137,26 @@ class Coordinator:
         gc = GroupChat(
             agents=[main_uprox, code_review, coding_llm],
             messages=[],
-            max_round=5,
+            max_round=15,
             speaker_selection_method="auto",
+            allow_repeat_speaker=[retriever, coding_llm],
         )
 
         @main_uprox.register_for_execution()
         @code_review.register_for_llm(
-            description="Retrieve additional information to complete the given task. Create a detailed query so that the retrieval is impactful in terms of information gained."
+            description="Retrieve additional information to complete the given task. Create a detailed query so that the retrieval is impactful in terms of information gained. Return several docs and use them in the context."
         )
         @coding_llm.register_for_llm(
-            description="Retrieve additional information to complete the given task. Create a detailed query so that the retrieval is impactful in terms of information gained."
+            description="Retrieve additional information to complete the given task. Create a detailed query so that the retrieval is impactful in terms of information gained. Return several docs and use them in the context."
         )
         def retrieve_content(
             message: str,
-            n_results: int = 7,
+            # n_results: int = 10,
             # retriever: ConversableAgent = retriever,
         ) -> str:
-            retriever.n_results = n_results
+            retriever.n_results = 7
 
+            logger.info(f"Retrieving content for the given QUERY: {message}")
             (
                 update_context_case1,
                 update_context_case2,
@@ -170,7 +170,7 @@ class Coordinator:
                 )
                 _, ret_msg = retriever._generate_retrieve_user_reply(message)
             else:
-                ret_msg = retriever.generate_init_message(message, n_results=n_results)
+                ret_msg = retriever.generate_init_message(message, n_results=7)
             return ret_msg if ret_msg else message
 
         # for agent in [code_review, coding_llm]:
@@ -187,14 +187,21 @@ class Coordinator:
         # )
 
         gcman = GroupChatManager(groupchat=gc, llm_config=base_cfg)
-        # self._groupchat_manager = gcman
+        self._groupchat_manager = gcman
         main_uprox.initiate_chat(
             gcman,
             message=prompt,
         )
-        logger.info(f"chat_messages: {gcman.chat_messages}")
-        logger.info(f"gcman last message: {gcman.last_message}")
+        logger.info(f"gcman last message: {gcman.last_message(coding_llm)}")
         logger.info(f"Entire msg history: {gcman.chat_messages}")
+        logger.info(
+            f"Agent descriptions: {[agent.description for agent in self.agents]}"
+        )
+
+        main_uprox.send(
+            "Now improve what ever code we've generated, take it a step beyond.",
+            recipient=gcman,
+        )
 
 
 if __name__ == "__main__":
@@ -213,5 +220,5 @@ if __name__ == "__main__":
         agents=curr_usage.create_research_team(),
         functions=functions.Functions,
     ).code_gen_group_chat(
-        "Explain a concept from the agent tuning paper for me. Show me how they evaluated a LLM using some hugging face dataset, I want to end up with a self-contained python file."
+        "Recreate a minimal concept from the agent tuning paper for me in a self-contained python file. Start by exploring the paper and codebase via the infohoarder."
     )

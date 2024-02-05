@@ -39,11 +39,11 @@ set +a
 ARGUMENT="$1"
 
 if [ "$MODE" = "module" ]; then
-    python -m "$ARGUMENT"
+    time python -m "$ARGUMENT"
 else
     if [ ! -f "$ARGUMENT" ]; then
         echo "Python script '$ARGUMENT' not found"
         exit 2
     fi
-    python "$ARGUMENT"
+    time python "$ARGUMENT"
 fi
