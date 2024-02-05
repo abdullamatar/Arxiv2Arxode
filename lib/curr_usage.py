@@ -16,8 +16,6 @@ Call RetrieveUserProxyAgent while init chat with another user proxy agent
 Sometimes, there might be a need to use RetrieveUserProxyAgent in group chat without initializing the chat with it. In such scenarios, it becomes essential to create a function that wraps the RAG agents and allows them to be called from other agents. WHY?
 """
 
-PROBLEM = "I want to understand the agent tuning paper and come out with a minimal implementation of some of the core ideas in the paper the code must be executable."
-
 # TODO: https://microsoft.github.io/autogen/blog/2023/10/26/TeachableAgent
 
 termination_msg = (
@@ -55,7 +53,7 @@ def create_research_team() -> List[ConversableAgent]:
         human_input_mode="NEVER",
         description="A retrieval augmented agent whose role is to retrieve additional information when asked, you can access an embeddings database with information related to code and research papers.",
         code_execution_config=False,
-        collection_name="init_vecdb",
+        collection_name="test_embeddings",
         llm_config=base_cfg,
         retrieve_config={
             "task": "qa",
@@ -91,8 +89,8 @@ def create_research_team() -> List[ConversableAgent]:
 
 
 if __name__ == "__main__":
-    exit()
-    init_rag_gc(problem=PROBLEM)
+    exit(-4)
+    # init_rag_gc(problem=PROBLEM)
     # from agents.coordinator import Coordinator
     # from agents.functions import Functions
 

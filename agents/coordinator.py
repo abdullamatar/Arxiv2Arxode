@@ -61,6 +61,12 @@ class Coordinator:
     def _reset_agents(self, agents: List[ConversableAgent]) -> None:
         [agent.reset() for agent in agents]
 
+    def log_gc_messages(self, msgs: List[dict]) -> None:
+        for m in msgs:
+            agent_name = m.get("name", "Unknown")
+            content = m.get("content", "Error getting content")
+            logger.info(f"SENDER {agent_name}:\nCONTENT: {content}")
+
     async def a_code_gen_group_chat(self, prompt: str) -> None:
         """
         Run a group chat with the agents and generate code
@@ -125,7 +131,7 @@ class Coordinator:
         )
         logger.info(f"Entire msg history: {gcman.chat_messages}")
 
-    def code_gen_group_chat(self, prompt: str, epochs: int = 5) -> ConversationResult:
+    def code_gen_group_chat(self, prompt: str, epochs: int = 5) -> None:
         """
         Run a group chat with the agents and generate code
         """
@@ -137,7 +143,7 @@ class Coordinator:
         gc = GroupChat(
             agents=[main_uprox, code_review, coding_llm],
             messages=[],
-            max_round=15,
+            max_round=(4 + 1),
             speaker_selection_method="auto",
             allow_repeat_speaker=[retriever, coding_llm],
         )
@@ -187,21 +193,25 @@ class Coordinator:
         # )
 
         gcman = GroupChatManager(groupchat=gc, llm_config=base_cfg)
-        self._groupchat_manager = gcman
+
+        # NOTE: Below comment...
+        # self._groupchat_manager = gcman
+
         main_uprox.initiate_chat(
             gcman,
             message=prompt,
         )
-        logger.info(f"gcman last message: {gcman.last_message(coding_llm)}")
-        logger.info(f"Entire msg history: {gcman.chat_messages}")
-        logger.info(
-            f"Agent descriptions: {[agent.description for agent in self.agents]}"
-        )
+        # logger.info(f"gcman last message: {gcman.last_message(coding_llm)}")
+        # logger.info(f"Entire msg history: {gcman.chat_messages}")
+        # logger.info(
+        #     f"Agent descriptions: {[agent.description for agent in self.agents]}"
+        # )
 
         main_uprox.send(
-            "Now improve what ever code we've generated, take it a step beyond.",
+            "Can you combine the last python script we generated with a new concept? Query the optomisation methods to see what topics are available for us to merge with the last script.",
             recipient=gcman,
         )
+        self.log_gc_messages(gc.messages)
 
 
 if __name__ == "__main__":
@@ -219,6 +229,4 @@ if __name__ == "__main__":
         team_name="test",
         agents=curr_usage.create_research_team(),
         functions=functions.Functions,
-    ).code_gen_group_chat(
-        "Recreate a minimal concept from the agent tuning paper for me in a self-contained python file. Start by exploring the paper and codebase via the infohoarder."
-    )
+    ).code_gen_group_chat("Implement newtons method for optimization in python.")

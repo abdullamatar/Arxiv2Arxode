@@ -5,7 +5,7 @@
 
 ----------
 
-__To get an idea of what the code does or to try it out the current state of the program, refer to the [`coordinator.py`](./agents/coordinator.py) file. Run it using `./run.sh -m agents.coordinator`, assuming you have the proper environment and vector database setup 😃.__
+__To get an idea of what the code does or to try it out the current state of the program, refer to the [`coordinator.py`](./agents/coordinator.py) file. Run it using `./run.sh -m agents.coordinator`, assuming you have the proper environment and vector database setup :\).__
 
 
 <img src="./imgs/DALL·E 2023-12-16 14.50.png" > </img>

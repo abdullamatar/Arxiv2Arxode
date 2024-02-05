@@ -4,15 +4,15 @@ import os
 
 config_list = [
     {
+        "model": "gpt-4",
+        "api_key": os.environ.get("OPENAI_APIKEY"),
+    },
+    {
         "model": "gpt-4-0125-preview",
         "api_key": os.environ.get("OPENAI_APIKEY"),
     },
     {
         "model": "gpt-4-1106-preview",
-        "api_key": os.environ.get("OPENAI_APIKEY"),
-    },
-    {
-        "model": "gpt-4",
         "api_key": os.environ.get("OPENAI_APIKEY"),
     },
     {
@@ -43,14 +43,14 @@ retrieve_conf = {
                 "properties": {
                     "message": {
                         "type": "string",
-                        "description": "Refined message which keeps the original meaning and can be used to retrieve content for code generation and question answering.",
+                        "description": "Detailed, yet concise message which keeps the original meaning and can be used to retrieve content for code generation and question answering.",
                     }
                 },
                 "required": ["message"],
             },
         },
     ],
-    "timeout": 60,
+    "timeout": 180,
     # "seed": 42,
 }
 
