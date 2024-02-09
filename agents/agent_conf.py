@@ -51,6 +51,7 @@ retrieve_conf = {
         },
     ],
     "timeout": 180,
+    "max_retries": 5,
     # "seed": 42,
 }
 

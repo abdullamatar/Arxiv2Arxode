@@ -8,8 +8,8 @@ import autogen
 from autogen import ConversableAgent, GroupChat, GroupChatManager
 
 import agents.functions as functions
-# TODO: Change curr_usage to actual lib file
-import lib.curr_usage as curr_usage
+
+from agents.agent import create_rl_team
 from agents.agent import EmbeddingRetrieverAgent
 from agents.agent_conf import base_cfg, retrieve_conf
 
@@ -136,14 +136,15 @@ class Coordinator:
         Run a group chat with the agents and generate code
         """
         self._reset_agents(self.agents)
-        main_uprox, retriever, code_review, coding_llm = self.agents
+        main_uprox, retriever, code_review, coding_llm = self.agents  # type: ignore
+        retriever: EmbeddingRetrieverAgent
         # for idx in range(epochs):
         #     break
 
         gc = GroupChat(
             agents=[main_uprox, code_review, coding_llm],
             messages=[],
-            max_round=(4 + 1),
+            max_round=(4 + 2),
             speaker_selection_method="auto",
             allow_repeat_speaker=[retriever, coding_llm],
         )
@@ -156,41 +157,44 @@ class Coordinator:
             description="Retrieve additional information to complete the given task. Create a detailed query so that the retrieval is impactful in terms of information gained. Return several docs and use them in the context."
         )
         def retrieve_content(
-            message: str,
+            query: str,
             # n_results: int = 10,
             # retriever: ConversableAgent = retriever,
         ) -> str:
             retriever.n_results = 7
 
-            logger.info(f"Retrieving content for the given QUERY: {message}")
+            logger.info(f"Retrieving content for the given QUERY: {query}")
             (
                 update_context_case1,
                 update_context_case2,
-            ) = retriever._check_update_context(message)
+            ) = retriever._check_update_context(message=query)
 
             if (
                 update_context_case1 or update_context_case2
             ) and retriever.update_context:
                 retriever.problem = (
-                    message if not hasattr(retriever, "problem") else retriever.problem
+                    query if not hasattr(retriever, "problem") else retriever.problem
                 )
-                _, ret_msg = retriever._generate_retrieve_user_reply(message)
+                _, ret_msg = retriever._generate_retrieve_user_reply(messages=query)
             else:
-                ret_msg = retriever.generate_init_message(message, n_results=7)
-            return ret_msg if ret_msg else message
+                ret_msg = retriever.generate_init_message(problem=query, n_results=7)
+            return ret_msg if ret_msg else query
 
         # for agent in [code_review, coding_llm]:
         #     if isinstance(agent, autogen.AssistantAgent):
         #         logger.info(f"updating llm_config for {agent.name}")
         #         agent.llm_config.update(retrieve_conf)
-        logger.info(
-            f"agent confs: {json.dumps(code_review.llm_config, indent=4)}\n {json.dumps(coding_llm.llm_config, indent=4)}\n {json.dumps(main_uprox.llm_config, indent=4)}\n {json.dumps(retriever.llm_config, indent=4)}"
-        )
+
+        # logger.info(
+        #     f"agent confs: {json.dumps(code_review.llm_config, indent=4)}\n {json.dumps(coding_llm.llm_config, indent=4)}\n {json.dumps(main_uprox.llm_config, indent=4)}\n {json.dumps(retriever.llm_config, indent=4)}"
+        # )
+
         # agent.register_function(
         #     function_map={
         #         "retrieve_content": retrieve_content,
         #     }
         # )
+        # FIXME: Runtime ratelimit error: https://microsoft.github.io/autogen/docs/Use-Cases/enhanced_inference/#runtime-error
 
         gcman = GroupChatManager(groupchat=gc, llm_config=base_cfg)
 
@@ -218,7 +222,7 @@ if __name__ == "__main__":
     # asyncio.run(
     #     Coordinator(
     #         team_name="test",
-    #         agents=curr_usage.create_research_team(),
+    #         agents=create_rl_team(),
     #         functions=functions.Functions,
     #     ).a_code_gen_group_chat(
     #         "Recreate a minimal concept from the agent tuning paper for me in a self-contained python file. Start by exploring the paper and codebase via the infohoarder."
@@ -227,6 +231,8 @@ if __name__ == "__main__":
 
     Coordinator(
         team_name="test",
-        agents=curr_usage.create_research_team(),
+        agents=create_rl_team(),
         functions=functions.Functions,
-    ).code_gen_group_chat("Implement newtons method for optimization in python.")
+    ).code_gen_group_chat(
+        "Explore the mixture training algorithm for me, specify it and create a python file for me to run using hugging face to get an understanding of the technique."
+    )
