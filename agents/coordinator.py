@@ -8,9 +8,7 @@ import autogen
 from autogen import ConversableAgent, GroupChat, GroupChatManager
 
 import agents.functions as functions
-
-from agents.agent import create_rl_team
-from agents.agent import EmbeddingRetrieverAgent
+from agents.agent import EmbeddingRetrieverAgent, create_rl_team
 from agents.agent_conf import base_cfg, retrieve_conf
 
 logger = logging.getLogger(__name__)

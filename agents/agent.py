@@ -1,14 +1,15 @@
 import asyncio
 import logging
 import random
-
 # import logging
 from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 import nest_asyncio
-from autogen import AssistantAgent, ConversableAgent, GroupChatManager, UserProxyAgent
+from autogen import (AssistantAgent, ConversableAgent, GroupChatManager,
+                     UserProxyAgent)
 from autogen.agentchat.agent import Agent
-from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
+from autogen.agentchat.contrib.retrieve_user_proxy_agent import \
+    RetrieveUserProxyAgent
 from autogen.agentchat.user_proxy_agent import UserProxyAgent
 
 import agents.agent_conf as agent_conf
