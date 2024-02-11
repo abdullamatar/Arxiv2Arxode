@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 import nest_asyncio
 from autogen import (AssistantAgent, ConversableAgent, GroupChatManager,
-                     UserProxyAgent)
+                     UserProxyAgent, config_list_from_json)
 from autogen.agentchat.agent import Agent
 from autogen.agentchat.contrib.retrieve_user_proxy_agent import \
     RetrieveUserProxyAgent
@@ -201,7 +201,7 @@ Sometimes, there might be a need to use RetrieveUserProxyAgent in group chat wit
 # rc: https://microsoft.github.io/autogen/blog/2023/10/18/RetrieveChat/
 
 
-def create_rl_team() -> List[ConversableAgent]:
+def marl() -> List[ConversableAgent]:
     # TODO: role def, assAgent for function/tool selection, user prox for eval() https://microsoft.github.io/autogen/docs/Use-Cases/agent_chat/#enhanced-inference
     agent0 = UserProxyAgent(
         name="main_userproxy",
@@ -212,8 +212,16 @@ def create_rl_team() -> List[ConversableAgent]:
         llm_config=base_cfg,
     )
 
+    # ret_conf = config_list_from_json(
+    #     env_or_file="./agents/agent_conf.py",
+    #     filter_dict={
+    #         "model": {
+    #             "gpt-3.5-turbo",
+    #         }
+    #     },
+    # )
     retriever = EmbeddingRetrieverAgent(
-        name="info_hoarder",
+        name="retrieval_agent",
         human_input_mode="NEVER",
         system_message="Retrieve additional information to complete the given task. Create a detailed query so that the retrieval is impactful in terms of information gained.",
         description="A retrieval augmented agent whose role is to retrieve additional information when asked, you can access an embeddings database with information related to code and research papers.",
@@ -249,32 +257,7 @@ def create_rl_team() -> List[ConversableAgent]:
     return [agent0, retriever, agent2, agent3]
 
 
-async def non_existent_async_func():
-    await asyncio.sleep(4)
-
-
-async def main():
-    main = UserProxyAgent(
-        name="main",
-        human_input_mode="ALWAYS",
-        max_consecutive_auto_reply=0,
-        code_execution_config=False,
-    )
-
-    assistant = AssistantAgent(
-        name="assistant",
-        #! system message, fixed typo: https://github.com/microsoft/autogen/blob/main/notebook/Async_human_input.ipynb
-        system_message="Under construction.",
-        llm_config=agent_conf.base_cfg,
-    )
-
-    await main.a_initiate_chat(
-        assistant,
-        message="Under construction.",
-        n_results=3,
-    )
-
-
 if __name__ == "__main__":
-    nest_asyncio.apply()
-    asyncio.run(main())
+    exit(9000)
+    # nest_asyncio.apply()
+    # asyncio.run(main())

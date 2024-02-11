@@ -1,6 +1,9 @@
 import os
 
+from autogen import config_list_from_json
+
 # from autogen import config_list_from_models
+# TODO: Conform to their way of cfg.......
 
 config_list = [
     {
@@ -34,24 +37,24 @@ base_cfg = {
 
 retrieve_conf = {
     **base_cfg,
-    "functions": [
-        {
-            "name": "retrieve_content",
-            "description": "retrieve content for code generation and question answering.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "message": {
-                        "type": "string",
-                        "description": "Detailed, yet concise message which keeps the original meaning and can be used to retrieve content for code generation and question answering.",
-                    }
-                },
-                "required": ["message"],
-            },
-        },
-    ],
-    "timeout": 180,
-    "max_retries": 5,
+    # "functions": [
+    #     {
+    #         "name": "retrieve_content",
+    #         "description": "retrieve content for code generation and question answering.",
+    #         "parameters": {
+    #             "type": "object",
+    #             "properties": {
+    #                 "message": {
+    #                     "type": "string",
+    #                     "description": "Detailed, yet concise message which keeps the original meaning and can be used to retrieve content for code generation and question answering.",
+    #                 }
+    #             },
+    #             "required": ["message"],
+    #         },
+    #     },
+    # ],
+    # "timeout": 180,
+    # "max_retries": 5,
     # "seed": 42,
 }
 

@@ -8,7 +8,7 @@ import autogen
 from autogen import ConversableAgent, GroupChat, GroupChatManager
 
 import agents.functions as functions
-from agents.agent import EmbeddingRetrieverAgent, create_rl_team
+from agents.agent import EmbeddingRetrieverAgent, marl
 from agents.agent_conf import base_cfg, retrieve_conf
 
 logger = logging.getLogger(__name__)
@@ -17,6 +17,10 @@ logging.basicConfig(
     filename="logs/coordinator.log",
     format="%(asctime)s  👁‍🗨  %(levelname)s  👁‍🗨  :\n%(message)s",
 )
+"""
+?ATTENTION:
+Registering reply functions, and potentially further sublclassing the CodingAgent are the way to move forward I believe.
+"""
 
 
 @dataclass
@@ -45,12 +49,10 @@ class Coordinator:
         self,
         team_name: str,
         agents: List[autogen.ConversableAgent],
-        functions: functions.Functions,
     ):
         self.team_name = team_name
         self.agents = agents
         self.messages = []
-        self.functions = functions()
         # List of chats - {sender, receiver, message}
         self.chats: List[Chat] = []
 
@@ -139,10 +141,26 @@ class Coordinator:
         # for idx in range(epochs):
         #     break
 
+        # main_uprox.register_reply(
+        #     trigger=[autogen.Agent, None],
+        #     reply_func=functions.get_code_blocks,
+        #     config={"callback": None},
+        # )
+        # code_review.register_reply(
+        #     trigger=[autogen.Agent, None],
+        #     reply_func=functions.get_code_blocks,
+        #     config={"callback": None},
+        # )
+        # coding_llm.register_reply(
+        #     trigger=[autogen.Agent, None],
+        #     reply_func=functions.get_code_blocks,
+        #     config={"callback": None},
+        # )
+
         gc = GroupChat(
             agents=[main_uprox, code_review, coding_llm],
             messages=[],
-            max_round=(4 + 2),
+            max_round=(3 + 7),
             speaker_selection_method="auto",
             allow_repeat_speaker=[retriever, coding_llm],
         )
@@ -193,9 +211,16 @@ class Coordinator:
         #     }
         # )
         # FIXME: Runtime ratelimit error: https://microsoft.github.io/autogen/docs/Use-Cases/enhanced_inference/#runtime-error
+        # TODO: Why the coding_agent returns None sometimes...
+        # TODO: https://github.com/olimoz/AI_Teams_AutoGen/blob/main/JupyterNotebooksForAutoGen.ipynb
 
         gcman = GroupChatManager(groupchat=gc, llm_config=base_cfg)
 
+        gcman.register_reply(
+            trigger=[autogen.Agent, None],
+            reply_func=functions.get_code_blocks,
+            config={"callback": None},
+        )
         # NOTE: Below comment...
         # self._groupchat_manager = gcman
 
@@ -209,10 +234,10 @@ class Coordinator:
         #     f"Agent descriptions: {[agent.description for agent in self.agents]}"
         # )
 
-        main_uprox.send(
-            "Can you combine the last python script we generated with a new concept? Query the optomisation methods to see what topics are available for us to merge with the last script.",
-            recipient=gcman,
-        )
+        # main_uprox.send(
+        #     "What was the last message exchanged?",
+        #     recipient=gcman,
+        # )
         self.log_gc_messages(gc.messages)
 
 
@@ -223,14 +248,13 @@ if __name__ == "__main__":
     #         agents=create_rl_team(),
     #         functions=functions.Functions,
     #     ).a_code_gen_group_chat(
-    #         "Recreate a minimal concept from the agent tuning paper for me in a self-contained python file. Start by exploring the paper and codebase via the infohoarder."
+    #         "Recreate a minimal concept from the agent tuning paper for me in a self-contained python file."
     #     )
     # )
 
     Coordinator(
         team_name="test",
-        agents=create_rl_team(),
-        functions=functions.Functions,
+        agents=marl(),
     ).code_gen_group_chat(
-        "Explore the mixture training algorithm for me, specify it and create a python file for me to run using hugging face to get an understanding of the technique."
+        "Explore the mixture training algorithm for me, summarize it and create a python file for me to run using hugging face to get an understanding of the technique."
     )
