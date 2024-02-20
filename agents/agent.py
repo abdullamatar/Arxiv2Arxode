@@ -1,22 +1,31 @@
-import asyncio
+# STD LIB
 import logging
-import random
-# import logging
-from typing import Any, Callable, Dict, List, Literal, Optional, Union
+import re
+import sys
+from uuid import uuid4
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
-import nest_asyncio
-from autogen import (AssistantAgent, ConversableAgent, GroupChatManager,
-                     UserProxyAgent, config_list_from_json)
-from autogen.agentchat.agent import Agent
-from autogen.agentchat.contrib.retrieve_user_proxy_agent import \
-    RetrieveUserProxyAgent
-from autogen.agentchat.user_proxy_agent import UserProxyAgent
+# autogen
+from autogen import (
+    Agent,
+    AssistantAgent,  # config_list_from_json,
+    ConversableAgent,
+    GroupChatManager,
+    UserProxyAgent,
+    OpenAIWrapper,
+)
+from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
+from autogen.agentchat.groupchat import GroupChat
+from autogen.code_utils import extract_code
 
-import agents.agent_conf as agent_conf
+# A2A
+# import agents.agent_conf as agent_conf
 from agents.agent_conf import base_cfg
 from lib.embeddings import get_db_connection, get_embedding_func
+from utils.misc import write_file
 
-logger = logging.getLogger(__name__)
+
+logger = logging.getLogger("agents")
 
 # U N D E R  C O N S T R U C T I O N
 # ◉_◉
@@ -26,9 +35,13 @@ logger = logging.getLogger(__name__)
 # TODO: Dynamic agent creation, urls as rag src, md, readmes, notebooks...
 
 termination_msg = (
-    lambda x: isinstance(x, dict)
-    and "TERMINATE" == str(x.get("content", ""))[-9:].upper()
+    lambda x: len(re.findall(r"TERMINATE", str(x.get("content", ""))[-9:].upper())) > 0
 )
+
+# termination_msg = (
+#     lambda x: isinstance(x, dict)
+#     and "TERMINATE" == str(x.get("content", ""))[-9:].upper()
+# )
 
 
 class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
@@ -69,7 +82,6 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
     ) -> Dict[str, List[List[str]]]:
         # ef = get_embedding_func()
         # embed_response = self.embedding_function.embed_query(query_texts)
-        # print(embed_response)
         relevant_docs = self.dbconn.similarity_search_with_relevance_scores(
             query=query_texts,
             k=n_results,
@@ -103,13 +115,9 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
             # embedding_model="text-embedding-ada-002",
             **kwargs,
         )
-        # print(results)
         # TODO: The northern winds blow strong...
         self._results = results  # Why?: It is a class property; state repr i guess?
         # return results
-
-    # def get_content(self):
-    #     return self._doc_contents
 
     # def generate_init_message(
     #     self, problem: str, n_results: int = 20, search_string: str = ""
@@ -134,21 +142,6 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
 
     # To modify the way to execute code blocks, single code block, or function call, override `execute_code_blocks`,
     # `run_code`, and `execute_function` methods respectively.
-
-    # async def a_receive(
-    #     self,
-    #     message: Dict | str,
-    #     sender: Agent,
-    #     request_reply: bool | None = None,
-    #     silent: bool | None = False,
-    # ):
-    #     logging.info(f"EmbeddingRetrieverAgent received message from {sender.name}")
-    #     if sender.name == "coordinator" and "Retrieve relevant documents" in message:
-    #         problem = message.replace("Retrieve relevant documents for: ", "")
-    #         logging.info(f"Retrieving documents for problem: {problem}")
-    #         retrieved_content = await self.retrieve_docs(problem)  # Ensure async call
-    #         logging.info(f"Retrieved content: {retrieved_content}")
-    #     return super().a_receive(message, sender, request_reply, silent)
 
 
 class CodingAssistant(UserProxyAgent):
@@ -175,17 +168,228 @@ class CodingAssistant(UserProxyAgent):
             # description,
             **kwargs,
         )
+        # self.register_reply(trigger=[Agent, None], reply_func=self.i)
 
-    def run_code(self, code, **kwargs):
-        logger.info(f"RUNNING CODE:\n{code}")
-        # TODO: More meaningful filename
-        filename = f"code_gen_{random.randint(0, 1000)}"
-        with open(f"sandbox/{filename}.py", "a") as f:
-            f.write(code)
-        return super().run_code(code, **kwargs)
+    def detect_and_execute_code(
+        self,
+        message,
+        # **kwargs,
+    ) -> List[Dict] | None:
+        # kwargs.pop("last_n_messages", None)
+        execution_feedback = []
+        # for message in messages:
+        # print(f"Typeof message: {type(message)}")
+        code_blocks = extract_code(message["content"])
+        if code_blocks:
+            for lang, code in code_blocks:
+                if lang == "python":
+                    # Third unpacked element is str for docker image
+                    # ? Can mod run_code as needed
+                    exit_code, logs, _ = self.run_code(code=code)
+
+                    execution_feedback.append(
+                        {"code": code, "exit_code": exit_code, "logs": logs}
+                    )
+                    write_file(f"sandbox/code_{uuid4()}.py", code)
+        logger.info(f"Execution feedback: {execution_feedback}")
+        return execution_feedback
+
+    def i(self, recipient, messages, sender, config) -> Tuple[bool, object]:
+        return (
+            # NOTE: !😎
+            (True, "I can respond with whatever I want, I am a free agent.")
+            if False
+            else (False, None)
+        )
+
+    # ! run_code called in execute_code_blocks which is called in generate_code_execution_reply
+    # code is extracted in generate_*_reply
+    # def run_code(self, code, **kwargs):
+    #     logger.info(f"RUNNING CODE:\n{code}")
+    #     filename = f"code_gen_{random.randint(0, 1000)}"
+    #     with open(f"sandbox/{filename}.py", "a") as f:
+    #         f.write(code)
+    #     return super().run_code(code, **kwargs)
 
 
-class GCManager(GroupChatManager): ...
+class GCManager(GroupChatManager):
+    def __init__(
+        self,
+        groupchat: GroupChat,
+        name: str | None = "chat_manager",
+        max_consecutive_auto_reply: int | None = sys.maxsize,
+        human_input_mode: str | None = "NEVER",
+        system_message: str | List | None = "Group chat manager.",
+        **kwargs,
+    ):
+        super().__init__(
+            groupchat,
+            name,
+            max_consecutive_auto_reply,
+            human_input_mode,
+            system_message,
+            **kwargs,
+        )
+        self.register_reply(
+            trigger=Agent, reply_func=GCManager.run_chat, config=groupchat
+        )
+
+    def is_code_block(self, message: Union[Dict, str]) -> bool:
+        if message.get("content") is None:
+            return False
+        if message:
+            return bool(
+                re.compile(
+                    r"```[ \t]*(\w+)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```", re.DOTALL
+                ).search(message if isinstance(message, str) else message["content"])
+            )
+        return False
+
+    def run_chat(
+        self,
+        messages: Optional[List[Dict]] = None,
+        sender: Optional[Agent] = None,
+        config: Optional[GroupChat] = None,
+    ) -> Tuple[bool, Optional[str]]:
+        """Run a group chat."""
+        # NOTE: Code adapted from autogen/agentchat/groupchat.py::GroupChatManager.run_chat
+
+        if messages is None:
+            messages = self._oai_messages[sender]
+        message = messages[-1]
+        speaker = sender
+        groupchat = config
+
+        if self.client_cache is not None:
+            for a in groupchat.agents:
+                a.previous_cache = a.client_cache
+                a.client_cache = self.client_cache
+
+        exe_feedback = None
+
+        # :D الله أكبر! تعليق بالعربي!
+        for i in range(groupchat.max_round):
+            # print("MESSAGES BELOW")
+            # print(messages)
+            coding_llm: CodingAssistant = groupchat.agents[2]
+            # print(f"{coding_llm.name} CODING LLM NAME")
+
+            groupchat.append(message, speaker)
+
+            # coding_llm.
+            try:
+                logger.info(
+                    f"last msg BEGINING OF LOOP: {coding_llm.last_message(self)}"
+                )
+            except Exception as e:
+                print("shawarma")
+            ##############################################
+            # extract code returns list of tuples - > [(inferred_lang, code)...]
+            # ? its always gonna be a single code block I believe... depends on model X_X
+            #! avoid looping over again... for l,c in ... instead of listcompr:
+            ##############################################
+
+            # NOTE: How its done in ConvAg.gen_code_exe_reply
+            # # found code blocks, execute code and push "last_n_messages" back
+            # exitcode, logs = self.execute_code_blocks(code_blocks)
+
+            if self._is_termination_msg(message):
+                # The conversation is over
+                break
+            # broadcast the message to all agents except the speaker
+            for agent in groupchat.agents:
+                if agent != speaker:
+                    self.send(message, agent, request_reply=False, silent=True)
+            if i == groupchat.max_round - 1:
+                # the last round
+                break
+
+            # print(f"last msg for coging: {coding_llm.last_message(self)}")
+            try:
+                # select the next speaker
+                speaker = groupchat.select_speaker(speaker, self)
+
+                ###########################  A2A  ###################################
+                ###########################  A2A  ###################################
+                ###########################  A2A  ###################################
+                ###########################  A2A  ###################################
+
+                # IF FALSE ಥ_ಥ #
+                if False and isinstance(speaker, CodingAssistant):
+                    # if code in msg then execute and generate reply
+                    # ? message, or what???
+                    # TODO: How to best attach logs and exitcode to message
+
+                    reply = speaker.generate_reply(sender=self)
+                    # exe_feedback = speaker.detect_and_execute_code(message)
+                    # break  # ??? break huh...
+                elif speaker.name == "code_reviewer" and exe_feedback:
+                    # speaker.
+                    reply = speaker.generate_reply(
+                        [
+                            *messages[-3:],
+                            {
+                                "content": f"{exe_feedback}\nGenerate an evaluation score for the code that has been generated given the above status, give the score first and then whatever suggestion you deem fit and necessary. REPLY EXACTLY EVALUATION SCORE=<score> followed by your suggestion on a new line where <score> is a float between 0 and 1.",
+                                "role": "assistant",
+                            },
+                        ],
+                        sender=self,
+                    )
+                    score_pattern = re.compile(r"EVALUATION SCORE=(\d+\.\d+)")
+
+                    # print(f"Reply: {reply}")
+                    # print(f"typeof reply: {type(reply)}")
+                    evaluation_score = re.findall(
+                        score_pattern,
+                        reply if isinstance(reply, str) else reply["content"],
+                    )
+                    logger.info(f"Evaluation score: {evaluation_score}")
+
+                ###########################  A2A  ###################################
+                ###########################  A2A  ###################################
+                ###########################  A2A  ###################################
+                ###########################  A2A  ###################################
+                else:
+                    reply = speaker.generate_reply(sender=self)
+            except KeyboardInterrupt:
+                # let the admin agent speak if interrupted
+                if groupchat.admin_name in groupchat.agent_names:
+                    # admin agent is one of the participants
+                    speaker = groupchat.agent_by_name(groupchat.admin_name)
+                    reply = speaker.generate_reply(sender=self)
+                else:
+                    raise
+
+            if reply is None:
+                break
+            # if (
+            #     groupchat.enable_clear_history
+            #     and isinstance(reply, dict)
+            #     and "CLEAR HISTORY" in reply["content"].upper()
+            # ):
+            #     reply["content"] = self.clear_agents_history(
+            #         reply["content"], groupchat
+            #     )
+            # The speaker sends the message without requesting a reply
+            speaker.send(reply, self, request_reply=False)
+            message = self.last_message(speaker)
+
+            if self.is_code_block(message):
+                exe_feedback = coding_llm.detect_and_execute_code(
+                    message,
+                )
+
+                logger.info(f"Execution feedback: {exe_feedback}")
+                i = 4 if i == (groupchat.max_round - 1) else i
+
+            # print(f"last message after assigning: {message}")
+            # if i == groupchat.max_round - 1:
+            #     groupchat.append(message, speaker)
+        if self.client_cache is not None:
+            for a in groupchat.agents:
+                a.client_cache = a.previous_cache
+                a.previous_cache = None
+        return True, None
 
 
 # To modify the way to execute code blocks, single code block, or function call, override execute_code_blocks, run_code, and execute_function methods respectively. (https://microsoft.github.io/autogen/docs/reference/agentchat/user_proxy_agent)
@@ -237,16 +441,21 @@ def marl() -> List[ConversableAgent]:
     agent2 = AssistantAgent(
         name="code_reviewer",
         description="Agent used to review code, given the information retrieved by the retrieval agent and other information related to the main problem at hand. Review the code generated by the coding_agent to make sure it is executable and logically follows the ideas from the research and source code.",
-        system_message="Review any generated code, add and modify it as needed. Also retrieve additional information from the retrieval agent, plan out what you want to do and why in a step by step manner.",
+        system_message="Review the generated code, add to it and modify it as needed. Also retrieve additional information from the retrieval agent, plan out what you want to do and why in a step by step manner. In the end provide a score for the code generated and a suggestion for improvement.",
         llm_config=base_cfg,
         is_termination_msg=termination_msg,
         code_execution_config=False,
     )
     agent3 = CodingAssistant(
         name="coding_agent",
-        system_message="Your role is to generate and execute code based off of the information provided by the retrieval agent and the code reviewer agent.",
+        system_message="Your role is to generate and execute code based off of the information provided by the retrieval agent and the code reviewer agent. Make sure you generate code in a step by step manner, use the feedback provided to improve your code. ALWAYS generate your code in a single code block and do not break it up, any comments you want to make can be added as comments in the code block.",
         description="A coding agent that is tasked with iteratively generating code based off of the information provided by the retrieval agent and the code reviewer agent.",
-        code_execution_config={"work_dir": "./sandbox", "use_docker": False},
+        code_execution_config={
+            "work_dir": "./sandbox",
+            "use_docker": False,
+            # "last_n_messages": 5,
+        },
+        # code_execution_config=False,
         # function_map={
         #     "execute_and_save": execute_and_save,
         # },

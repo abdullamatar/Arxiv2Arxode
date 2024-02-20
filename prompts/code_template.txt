@@ -1,6 +1,0 @@
-Your output should be formatted as a python code string of the form: """python\nyour code\n""".
-You will be iterating over this template and filling out as an interface where you can substitute in code you recieve as content as well as code you generate yourself.
-
-Here are some useful ideas to keep in mind while generating code:
-    - Generate the code in a precise manner making use of the context you recieve, whether it be existing code from the research paper or information specifying ideas to be translated into python code.
-    - Use the context to generate function signatures and other templating code that is as generic as possible to allow for easy changes to be made as well as to allow for easy implementation.

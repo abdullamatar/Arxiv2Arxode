@@ -1,1 +1,0 @@
-All the files in this directory are created by LLMs

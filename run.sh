@@ -23,14 +23,9 @@ done
 
 shift $((OPTIND -1))
 
-if [ "$#" -ne 1 ]; then
-    usage
-fi
+[ "$#" -ne 1 ] && usage
 
-if [ ! -f .env ]; then
-    echo ".env file not found"
-    exit 4
-fi
+[ ! -f .env ] && echo ".env file not found" && exit 4
 
 set -a
 source .env
@@ -41,9 +36,6 @@ ARGUMENT="$1"
 if [ "$MODE" = "module" ]; then
     time python -m "$ARGUMENT"
 else
-    if [ ! -f "$ARGUMENT" ]; then
-        echo "Python script '$ARGUMENT' not found"
-        exit 2
-    fi
-    time python "$ARGUMENT"
+[ ! -f "$ARGUMENT" ] && echo "Python script '$ARGUMENT' not found" && exit 2
+time python "$ARGUMENT"
 fi

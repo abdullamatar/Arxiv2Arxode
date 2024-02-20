@@ -1,5 +1,6 @@
 # ヾ(⌐■_■)ノ♪
 __pycache__
+.vscode
 temp*/**
 temp*
 *back*

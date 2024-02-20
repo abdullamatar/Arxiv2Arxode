@@ -1,2 +1,0 @@
-Here is python code relevant to the current task at hand:
-{code_context}

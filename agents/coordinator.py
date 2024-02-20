@@ -7,16 +7,17 @@ from typing import List, Optional, Tuple
 import autogen
 from autogen import ConversableAgent, GroupChat, GroupChatManager
 
-import agents.functions as functions
-from agents.agent import EmbeddingRetrieverAgent, marl
+import lib.functions as functions
+from agents.agent import EmbeddingRetrieverAgent, GCManager, marl
 from agents.agent_conf import base_cfg, retrieve_conf
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("coordinator")
 logging.basicConfig(
     level=logging.INFO,
-    filename="logs/coordinator.log",
-    format="%(asctime)s  👁‍🗨  %(levelname)s  👁‍🗨  :\n%(message)s",
+    filename="./logs/coordinator.log",
+    format="%(asctime)s  👁‍🗨  %(levelname)s  👁‍🗨 from mod %(module)s:\n%(message)s",
 )
+
 """
 ?ATTENTION:
 Registering reply functions, and potentially further sublclassing the CodingAgent are the way to move forward I believe.
@@ -25,8 +26,6 @@ Registering reply functions, and potentially further sublclassing the CodingAgen
 
 @dataclass
 class Chat:
-    """Chat message"""
-
     sender: str
     receiver: str
     message: str
@@ -115,9 +114,6 @@ class Coordinator:
         #         logger.info(f"updating llm_config for {agent.name}")
         #         agent.llm_config.update(retrieve_conf)
 
-        logger.info(
-            f"agent confs: {json.dumps(code_review.llm_config, indent=4)}\n {json.dumps(coding_llm.llm_config, indent=4)}\n {json.dumps(main_uprox.llm_config, indent=4)}\n {json.dumps(retriever.llm_config, indent=4)}"
-        )
         # agent.register_function(
         #     function_map={
         #         "retrieve_content": retrieve_content,
@@ -129,7 +125,6 @@ class Coordinator:
             gcman,
             message=prompt,
         )
-        logger.info(f"Entire msg history: {gcman.chat_messages}")
 
     def code_gen_group_chat(self, prompt: str, epochs: int = 5) -> None:
         """
@@ -138,31 +133,13 @@ class Coordinator:
         self._reset_agents(self.agents)
         main_uprox, retriever, code_review, coding_llm = self.agents  # type: ignore
         retriever: EmbeddingRetrieverAgent
-        # for idx in range(epochs):
-        #     break
-
-        # main_uprox.register_reply(
-        #     trigger=[autogen.Agent, None],
-        #     reply_func=functions.get_code_blocks,
-        #     config={"callback": None},
-        # )
-        # code_review.register_reply(
-        #     trigger=[autogen.Agent, None],
-        #     reply_func=functions.get_code_blocks,
-        #     config={"callback": None},
-        # )
-        # coding_llm.register_reply(
-        #     trigger=[autogen.Agent, None],
-        #     reply_func=functions.get_code_blocks,
-        #     config={"callback": None},
-        # )
 
         gc = GroupChat(
             agents=[main_uprox, code_review, coding_llm],
             messages=[],
             max_round=(3 + 7),
             speaker_selection_method="auto",
-            allow_repeat_speaker=[retriever, coding_llm],
+            allow_repeat_speaker=[coding_llm],
         )
 
         @main_uprox.register_for_execution()
@@ -196,38 +173,36 @@ class Coordinator:
                 ret_msg = retriever.generate_init_message(problem=query, n_results=7)
             return ret_msg if ret_msg else query
 
-        # for agent in [code_review, coding_llm]:
-        #     if isinstance(agent, autogen.AssistantAgent):
-        #         logger.info(f"updating llm_config for {agent.name}")
-        #         agent.llm_config.update(retrieve_conf)
-
-        # logger.info(
-        #     f"agent confs: {json.dumps(code_review.llm_config, indent=4)}\n {json.dumps(coding_llm.llm_config, indent=4)}\n {json.dumps(main_uprox.llm_config, indent=4)}\n {json.dumps(retriever.llm_config, indent=4)}"
-        # )
-
-        # agent.register_function(
-        #     function_map={
-        #         "retrieve_content": retrieve_content,
-        #     }
-        # )
+        # !!!!!!!!!!!!! THIS FIXME IS C R I T I C A L !!!!!!!!!!!!!
         # FIXME: Runtime ratelimit error: https://microsoft.github.io/autogen/docs/Use-Cases/enhanced_inference/#runtime-error
+        # TODO: Start with model conf, rag can use gpt3.5, if anything...
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         # TODO: Why the coding_agent returns None sometimes...
         # TODO: https://github.com/olimoz/AI_Teams_AutoGen/blob/main/JupyterNotebooksForAutoGen.ipynb
 
-        gcman = GroupChatManager(groupchat=gc, llm_config=base_cfg)
+        gcman = GCManager(groupchat=gc, llm_config=base_cfg)
 
-        gcman.register_reply(
-            trigger=[autogen.Agent, None],
-            reply_func=functions.get_code_blocks,
-            config={"callback": None},
-        )
-        # NOTE: Below comment...
-        # self._groupchat_manager = gcman
+        # gcman.register_reply(
+        #     trigger=[autogen.Agent, None],
+        #     reply_func=functions.get_code_blocks,
+        #     config={"callback": None},
+        # )
 
+        # # gcman._groupchat.
+
+        # main_uprox.register_reply(
+        #     trigger=[autogen.Agent, None],
+        #     reply_func=functions.get_code_blocks,
+        #     config={"callback": None},
+        # )
+
+        # init chat calls the main reply function registered with the gcman, which is the run_chat function def'd in the GCman class
         main_uprox.initiate_chat(
             gcman,
             message=prompt,
+            # clear_history=False,
         )
+
         # logger.info(f"gcman last message: {gcman.last_message(coding_llm)}")
         # logger.info(f"Entire msg history: {gcman.chat_messages}")
         # logger.info(
@@ -256,5 +231,5 @@ if __name__ == "__main__":
         team_name="test",
         agents=marl(),
     ).code_gen_group_chat(
-        "Explore the mixture training algorithm for me, summarize it and create a python file for me to run using hugging face to get an understanding of the technique."
+        "Get me started with mixture training for a language model, set it up with a model and all the other things required to have a working python file."
     )

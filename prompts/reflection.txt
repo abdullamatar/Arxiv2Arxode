@@ -1,2 +1,0 @@
-previous state {task_state}
-code execution output {execution_output}
