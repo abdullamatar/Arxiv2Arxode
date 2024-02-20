@@ -2,19 +2,15 @@
 import logging
 import re
 import sys
-from uuid import uuid4
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
+from uuid import uuid4
 
 # autogen
-from autogen import (
-    Agent,
-    AssistantAgent,  # config_list_from_json,
-    ConversableAgent,
-    GroupChatManager,
-    UserProxyAgent,
-    OpenAIWrapper,
-)
-from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
+from autogen import AssistantAgent  # config_list_from_json,
+from autogen import (Agent, ConversableAgent, GroupChatManager, OpenAIWrapper,
+                     UserProxyAgent)
+from autogen.agentchat.contrib.retrieve_user_proxy_agent import \
+    RetrieveUserProxyAgent
 from autogen.agentchat.groupchat import GroupChat
 from autogen.code_utils import extract_code
 
@@ -23,7 +19,6 @@ from autogen.code_utils import extract_code
 from agents.agent_conf import base_cfg
 from lib.embeddings import get_db_connection, get_embedding_func
 from utils.misc import write_file
-
 
 logger = logging.getLogger("agents")
 
