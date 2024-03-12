@@ -16,7 +16,7 @@ from autogen.code_utils import extract_code
 
 # A2A
 # import agents.agent_conf as agent_conf
-from agents.agent_conf import base_cfg
+from agents.agent_conf import base_cfg, retrieve_conf
 from lib.embeddings import get_db_connection, get_embedding_func
 from utils.misc import write_file
 
@@ -214,6 +214,7 @@ class GCManager(GroupChatManager):
         name: str | None = "chat_manager",
         max_consecutive_auto_reply: int | None = sys.maxsize,
         human_input_mode: str | None = "NEVER",
+        llm_config: Optional[Union[Dict, Literal[False]]] = None,
         system_message: str | List | None = "Group chat manager.",
         **kwargs,
     ):
@@ -223,6 +224,7 @@ class GCManager(GroupChatManager):
             max_consecutive_auto_reply,
             human_input_mode,
             system_message,
+            llm_config=llm_config,
             **kwargs,
         )
         self.register_reply(
@@ -230,15 +232,16 @@ class GCManager(GroupChatManager):
         )
 
     def is_code_block(self, message: Union[Dict, str]) -> bool:
-        if message.get("content") is None:
+        if isinstance(message, dict) and message.get("content") is None:
             return False
-        if message:
-            return bool(
-                re.compile(
-                    r"```[ \t]*(\w+)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```", re.DOTALL
-                ).search(message if isinstance(message, str) else message["content"])
-            )
-        return False
+        elif not message:
+            return False
+
+        return bool(
+            re.compile(
+                r"```[ \t]*(\w+)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```", re.DOTALL
+            ).search(message if isinstance(message, str) else message["content"])
+        )
 
     def run_chat(
         self,
@@ -247,7 +250,6 @@ class GCManager(GroupChatManager):
         config: Optional[GroupChat] = None,
     ) -> Tuple[bool, Optional[str]]:
         """Run a group chat."""
-        # NOTE: Code adapted from autogen/agentchat/groupchat.py::GroupChatManager.run_chat
 
         if messages is None:
             messages = self._oai_messages[sender]
@@ -264,10 +266,8 @@ class GCManager(GroupChatManager):
 
         # :D الله أكبر! تعليق بالعربي!
         for i in range(groupchat.max_round):
-            # print("MESSAGES BELOW")
-            # print(messages)
+            # Isolate the coding LLM
             coding_llm: CodingAssistant = groupchat.agents[2]
-            # print(f"{coding_llm.name} CODING LLM NAME")
 
             groupchat.append(message, speaker)
 
@@ -277,7 +277,10 @@ class GCManager(GroupChatManager):
                     f"last msg BEGINING OF LOOP: {coding_llm.last_message(self)}"
                 )
             except Exception as e:
-                print("shawarma")
+                print(e)
+                # e.add_note()
+                # print(e,")
+
             ##############################################
             # extract code returns list of tuples - > [(inferred_lang, code)...]
             # ? its always gonna be a single code block I believe... depends on model X_X
@@ -288,10 +291,11 @@ class GCManager(GroupChatManager):
             # # found code blocks, execute code and push "last_n_messages" back
             # exitcode, logs = self.execute_code_blocks(code_blocks)
 
-            if self._is_termination_msg(message):
-                # The conversation is over
-                break
+            # if self._is_termination_msg(message):
+            # The conversation is over
+            #   break
             # broadcast the message to all agents except the speaker
+
             for agent in groupchat.agents:
                 if agent != speaker:
                     self.send(message, agent, request_reply=False, silent=True)
@@ -375,6 +379,8 @@ class GCManager(GroupChatManager):
                 )
 
                 logger.info(f"Execution feedback: {exe_feedback}")
+
+                # dumb hack to make sure the code reviewer gets the feedback
                 i = 4 if i == (groupchat.max_round - 1) else i
 
             # print(f"last message after assigning: {message}")
@@ -400,7 +406,7 @@ Sometimes, there might be a need to use RetrieveUserProxyAgent in group chat wit
 # rc: https://microsoft.github.io/autogen/blog/2023/10/18/RetrieveChat/
 
 
-def marl() -> List[ConversableAgent]:
+def marl(collection_name: str = "init_vecdb") -> List[ConversableAgent]:
     # TODO: role def, assAgent for function/tool selection, user prox for eval() https://microsoft.github.io/autogen/docs/Use-Cases/agent_chat/#enhanced-inference
     agent0 = UserProxyAgent(
         name="main_userproxy",
@@ -425,8 +431,8 @@ def marl() -> List[ConversableAgent]:
         system_message="Retrieve additional information to complete the given task. Create a detailed query so that the retrieval is impactful in terms of information gained.",
         description="A retrieval augmented agent whose role is to retrieve additional information when asked, you can access an embeddings database with information related to code and research papers.",
         code_execution_config=False,
-        collection_name="init_vecdb",
-        llm_config=base_cfg,
+        collection_name=collection_name,
+        llm_config=retrieve_conf,
         retrieve_config={
             "task": "qa",
             "client": "psycopg2",

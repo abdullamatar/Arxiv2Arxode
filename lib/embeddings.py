@@ -19,12 +19,14 @@ openaikey = os.environ.get("OPENAI_APIKEY")
 
 CONNECTION_STRING = PGVector.connection_string_from_db_params(
     driver=os.environ.get("PGVECTOR_DRIVER", "psycopg2"),
-    host=os.environ.get("PGV_HOST", ""),
+    host=os.environ.get("PGV_HOST", "localhost"),
     port=int(os.environ.get("PGV_PORT", "")),
     database=os.environ.get("PGV_DATABASE", ""),
     user=os.environ.get("PGV_USER", ""),
     password=os.environ.get("PGV_PASSWORD", ""),
 )
+
+print(CONNECTION_STRING)
 
 
 def load_and_chunk_papers(

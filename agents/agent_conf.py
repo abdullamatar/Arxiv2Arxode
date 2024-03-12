@@ -1,6 +1,6 @@
 import os
 
-from autogen import config_list_from_json
+# from autogen import config_list_from_json
 
 # from autogen import config_list_from_models
 # TODO: Conform to their way of cfg.......
@@ -8,23 +8,23 @@ from autogen import config_list_from_json
 config_list = [
     {
         "model": "gpt-4",
-        "api_key": os.environ.get("OPENAI_APIKEY"),
+        "api_key": os.environ.get("OPENAI_APIKEY2"),
     },
     {
         "model": "gpt-4-0125-preview",
-        "api_key": os.environ.get("OPENAI_APIKEY"),
+        "api_key": os.environ.get("OPENAI_APIKEY2"),
     },
     {
         "model": "gpt-4-1106-preview",
-        "api_key": os.environ.get("OPENAI_APIKEY"),
+        "api_key": os.environ.get("OPENAI_APIKEY2"),
     },
     {
         "model": "gpt-3.5-turbo",
-        "api_key": os.environ.get("OPENAI_APIKEY"),
+        "api_key": os.environ.get("OPENAI_APIKEY2"),
     },
     {
         "model": "gpt-3.5-turbo-16k",
-        "api_key": os.environ.get("OPENAI_APIKEY"),
+        "api_key": os.environ.get("OPENAI_APIKEY2"),
     },
 ]
 
@@ -35,8 +35,22 @@ base_cfg = {
     "temperature": 1.0,
 }
 
+gcconf = {
+    "config_list": [
+        {
+            "model": "gpt-3.5-turbo",
+            "api_key": os.environ.get("OPENAI_APIKEY2"),
+        }
+    ]
+}
+
 retrieve_conf = {
-    **base_cfg,
+    "config_list": [
+        {
+            "model": "gpt-3.5-turbo",
+            "api_key": os.environ.get("OPENAI_APIKEY2"),
+        }
+    ]
     # "functions": [
     #     {
     #         "name": "retrieve_content",

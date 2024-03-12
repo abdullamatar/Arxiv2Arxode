@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 from dataclasses import asdict, dataclass
 from typing import List, Optional, Tuple
 
@@ -9,7 +10,7 @@ from autogen import ConversableAgent, GroupChat, GroupChatManager
 
 import lib.functions as functions
 from agents.agent import EmbeddingRetrieverAgent, GCManager, marl
-from agents.agent_conf import base_cfg, retrieve_conf
+from agents.agent_conf import base_cfg, gcconf, retrieve_conf
 
 logger = logging.getLogger("coordinator")
 logging.basicConfig(
@@ -180,7 +181,7 @@ class Coordinator:
         # TODO: Why the coding_agent returns None sometimes...
         # TODO: https://github.com/olimoz/AI_Teams_AutoGen/blob/main/JupyterNotebooksForAutoGen.ipynb
 
-        gcman = GCManager(groupchat=gc, llm_config=base_cfg)
+        gcman = GCManager(groupchat=gc, llm_config=gcconf)
 
         # gcman.register_reply(
         #     trigger=[autogen.Agent, None],
