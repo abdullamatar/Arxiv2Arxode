@@ -4,10 +4,10 @@ import logging
 import os
 from dataclasses import asdict, dataclass
 from typing import List, Optional, Tuple
-from autogen import gather_usage_summary
 
 import autogen
-from autogen import ConversableAgent, GroupChat, GroupChatManager
+from autogen import (ConversableAgent, GroupChat, GroupChatManager,
+                     gather_usage_summary)
 
 import lib.functions as functions
 from agents.agent import EmbeddingRetrieverAgent, GCManager, marl
