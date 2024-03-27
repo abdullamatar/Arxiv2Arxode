@@ -4,6 +4,7 @@ import logging
 import os
 from dataclasses import asdict, dataclass
 from typing import List, Optional, Tuple
+from autogen import gather_usage_summary
 
 import autogen
 from autogen import ConversableAgent, GroupChat, GroupChatManager
@@ -138,7 +139,7 @@ class Coordinator:
         gc = GroupChat(
             agents=[main_uprox, code_review, coding_llm],
             messages=[],
-            max_round=(3 + 7),
+            max_round=10,
             speaker_selection_method="auto",
             allow_repeat_speaker=[coding_llm],
         )
@@ -151,28 +152,31 @@ class Coordinator:
             description="Retrieve additional information to complete the given task. Create a detailed query so that the retrieval is impactful in terms of information gained. Return several docs and use them in the context."
         )
         def retrieve_content(
-            query: str,
+            message: str,
             # n_results: int = 10,
             # retriever: ConversableAgent = retriever,
         ) -> str:
-            retriever.n_results = 7
+            # retriever.n_results = 7
 
-            logger.info(f"Retrieving content for the given QUERY: {query}")
+            assert message, "Message for database query not parsed correctly"
+            # logger.info(f"Retrieving content for the given QUERY: {message}")
             (
                 update_context_case1,
                 update_context_case2,
-            ) = retriever._check_update_context(message=query)
+            ) = retriever._check_update_context(message=message)
 
             if (
                 update_context_case1 or update_context_case2
             ) and retriever.update_context:
                 retriever.problem = (
-                    query if not hasattr(retriever, "problem") else retriever.problem
+                    message if not hasattr(retriever, "problem") else retriever.problem
                 )
-                _, ret_msg = retriever._generate_retrieve_user_reply(messages=query)
+                _, ret_msg = retriever._generate_retrieve_user_reply(messages=message)
             else:
-                ret_msg = retriever.generate_init_message(problem=query, n_results=7)
-            return ret_msg if ret_msg else query
+                _context = {"problem": message}
+                ret_msg = retriever.message_generator(retriever, None, _context)
+                # ret_msg = retriever.generate_init_message(message=message, n_results=7)
+            return ret_msg if ret_msg else message
 
         # !!!!!!!!!!!!! THIS FIXME IS C R I T I C A L !!!!!!!!!!!!!
         # FIXME: Runtime ratelimit error: https://microsoft.github.io/autogen/docs/Use-Cases/enhanced_inference/#runtime-error
@@ -214,7 +218,28 @@ class Coordinator:
         #     "What was the last message exchanged?",
         #     recipient=gcman,
         # )
-        self.log_gc_messages(gc.messages)
+
+        # !EVAL
+        # combined_stats = {
+        #     "task_description": prompt,
+        #     "usage_stats": {},
+        #     "exe_feedback": [],
+        # }
+        # all_agents = self.agents + [gcman]
+        # total, _ = gather_usage_summary(all_agents)
+        # combined_stats["usage_stats"] = total
+        # combined_stats["exe_feedback"] = gcman.execution_feedback_list
+
+        # exit_codes = [
+        #     feedback["exit_code"] for feedback in gcman.execution_feedback_list
+        # ]
+
+        # combined_stats["exit_codes"] = exit_codes
+        # with open("combined_stats.jsonl", "a") as f:
+        #     f.write(json.dumps(combined_stats) + "\n")
+        # !EVAL
+
+        # logger.info(f"Total usage summary: {gather_usage_summary([gcman])}")
 
 
 if __name__ == "__main__":
@@ -228,9 +253,10 @@ if __name__ == "__main__":
     #     )
     # )
 
+    print("Starting the coordinator")
     Coordinator(
         team_name="test",
-        agents=marl(),
+        agents=marl(collection_name="eval_db"),
     ).code_gen_group_chat(
-        "Get me started with mixture training for a language model, set it up with a model and all the other things required to have a working python file."
+        "What does the author say in his bibliographic remarks section?"
     )
