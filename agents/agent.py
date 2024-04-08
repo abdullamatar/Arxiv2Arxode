@@ -119,35 +119,35 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         # return results
 
     # This is taken directly from the RetrieveUserProxyAgent class from autogen and is used as a hacky workaround to abide by the token limit of the 3.5 family of models, it is commented out when using gpt4+.
-    def _get_context(self, results: Dict[str, List[str] | List[List[str]]]):
-        doc_contents = ""
-        current_tokens = 0
-        _doc_idx = self._doc_idx
-        _tmp_retrieve_count = 0
-        for idx, doc in enumerate(results["documents"][0][:5]):
-            if idx <= _doc_idx:
-                continue
-            if results["ids"][0][idx] in self._doc_ids:
-                continue
-            _doc_tokens = self.custom_token_count_function(doc, self._model)
-            if _doc_tokens > self._context_max_tokens:
-                func_print = f"Skip doc_id {results['ids'][0][idx]} as it is too long to fit in the context."
-                print((func_print))
-                self._doc_idx = idx
-                continue
-            if current_tokens + _doc_tokens > self._context_max_tokens:
-                break
-            func_print = f"Adding doc_id {results['ids'][0][idx]} to context."
-            print((func_print))
-            current_tokens += _doc_tokens
-            doc_contents += doc + "\n"
-            self._doc_idx = idx
-            self._doc_ids.append(results["ids"][0][idx])
-            self._doc_contents.append(doc)
-            _tmp_retrieve_count += 1
-            if _tmp_retrieve_count >= self.n_results:
-                break
-        return doc_contents
+    # def _get_context(self, results: Dict[str, List[str] | List[List[str]]]):
+    #     doc_contents = ""
+    #     current_tokens = 0
+    #     _doc_idx = self._doc_idx
+    #     _tmp_retrieve_count = 0
+    #     for idx, doc in enumerate(results["documents"][0][:5]):
+    #         if idx <= _doc_idx:
+    #             continue
+    #         if results["ids"][0][idx] in self._doc_ids:
+    #             continue
+    #         _doc_tokens = self.custom_token_count_function(doc, self._model)
+    #         if _doc_tokens > self._context_max_tokens:
+    #             func_print = f"Skip doc_id {results['ids'][0][idx]} as it is too long to fit in the context."
+    #             print((func_print))
+    #             self._doc_idx = idx
+    #             continue
+    #         if current_tokens + _doc_tokens > self._context_max_tokens:
+    #             break
+    #         func_print = f"Adding doc_id {results['ids'][0][idx]} to context."
+    #         print((func_print))
+    #         current_tokens += _doc_tokens
+    #         doc_contents += doc + "\n"
+    #         self._doc_idx = idx
+    #         self._doc_ids.append(results["ids"][0][idx])
+    #         self._doc_contents.append(doc)
+    #         _tmp_retrieve_count += 1
+    #         if _tmp_retrieve_count >= self.n_results:
+    #             break
+    #     return doc_contents
 
     # def generate_init_message(
     #     self, problem: str, n_results: int = 20, search_string: str = ""

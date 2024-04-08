@@ -7,6 +7,9 @@
 ## Known Issues
 
 - Sometimes at the end of a groupchat conversation, right before ending the final round an OpenAI error will be thrown due to a call being made for a certain tool without the correct `role` assigned to the message sender (tool caller).
+
+- If using the GPT3 family of models one can run into token limit issues, there is a hacky fix under the retrieval agent's `_get_context` function, it is commented out when using GPT4.
+
 ## Installation
 
 #### Prerequisites:
