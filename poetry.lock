@@ -2108,6 +2108,23 @@ htmlsoup = ["BeautifulSoup4"]
 source = ["Cython (>=3.0.7)"]
 
 [[package]]
+name = "mando"
+version = "0.7.1"
+description = "Create Python CLI apps with little to no effort at all!"
+optional = false
+python-versions = "*"
+files = [
+    {file = "mando-0.7.1-py2.py3-none-any.whl", hash = "sha256:26ef1d70928b6057ee3ca12583d73c63e05c49de8972d620c278a7b206581a8a"},
+    {file = "mando-0.7.1.tar.gz", hash = "sha256:18baa999b4b613faefb00eac4efadcf14f510b59b924b66e08289aa1de8c3500"},
+]
+
+[package.dependencies]
+six = "*"
+
+[package.extras]
+restructuredtext = ["rst2ansi"]
+
+[[package]]
 name = "markupsafe"
 version = "2.1.5"
 description = "Safely add untrusted strings to HTML/XML markup."
@@ -3773,13 +3790,13 @@ pyasn1 = ">=0.4.6,<0.6.0"
 
 [[package]]
 name = "pyautogen"
-version = "0.2.18"
+version = "0.2.21"
 description = "Enabling Next-Gen LLM Applications via Multi-Agent Conversation Framework"
 optional = false
-python-versions = ">=3.8,<3.13"
+python-versions = "<3.13,>=3.8"
 files = [
-    {file = "pyautogen-0.2.18-py3-none-any.whl", hash = "sha256:8a2a6083f5b6333183a66e78f8af729eb2350b25fa5c368390b953d0664bb255"},
-    {file = "pyautogen-0.2.18.tar.gz", hash = "sha256:e200e9f939e18632283aa1a70c7ce00319445b88a1a348a78ffe02f95aa64808"},
+    {file = "pyautogen-0.2.21-py3-none-any.whl", hash = "sha256:64c8311d33599ad517e60fa63e125d67ac99dfc4a80790826b603df936b8e7fc"},
+    {file = "pyautogen-0.2.21.tar.gz", hash = "sha256:8b4fde51511d65ceb6e320e6a1d82c9d96684e3605c00ed17805abd8d90b1049"},
 ]
 
 [package.dependencies]
@@ -3788,6 +3805,7 @@ diskcache = "*"
 docker = "*"
 flaml = "*"
 ipython = {version = "*", optional = true, markers = "extra == \"retrievechat\""}
+numpy = ">=1.17.0,<2"
 openai = ">=1.3"
 pydantic = ">=1.10,<2.6.0 || >2.6.0,<3"
 pypdf = {version = "*", optional = true, markers = "extra == \"retrievechat\""}
@@ -3806,7 +3824,9 @@ mathchat = ["pydantic (==1.10.9)", "sympy", "wolframalpha"]
 redis = ["redis"]
 retrievechat = ["chromadb", "ipython", "pypdf", "sentence-transformers"]
 teachable = ["chromadb"]
-test = ["coverage (>=5.3)", "ipykernel", "nbconvert", "nbformat", "pre-commit", "pytest (>=6.1.1,<8)", "pytest-asyncio"]
+test = ["coverage (>=5.3)", "ipykernel", "nbconvert", "nbformat", "pandas", "pre-commit", "pytest (>=6.1.1,<8)", "pytest-asyncio"]
+types = ["ipykernel (>=6.29.0)", "jupyter-client (>=8.6.0)", "jupyter-kernel-gateway", "mypy (==1.9.0)", "pytest (>=6.1.1,<8)", "requests", "websocket-client"]
+websockets = ["websockets (>=12.0,<13)"]
 websurfer = ["beautifulsoup4", "markdownify", "pathvalidate", "pdfminer.six"]
 
 [[package]]
@@ -4243,6 +4263,24 @@ files = [
 ]
 
 [[package]]
+name = "radon"
+version = "6.0.1"
+description = "Code Metrics in Python"
+optional = false
+python-versions = "*"
+files = [
+    {file = "radon-6.0.1-py2.py3-none-any.whl", hash = "sha256:632cc032364a6f8bb1010a2f6a12d0f14bc7e5ede76585ef29dc0cecf4cd8859"},
+    {file = "radon-6.0.1.tar.gz", hash = "sha256:d1ac0053943a893878940fedc8b19ace70386fc9c9bf0a09229a44125ebf45b5"},
+]
+
+[package.dependencies]
+colorama = {version = ">=0.4.1", markers = "python_version > \"3.4\""}
+mando = ">=0.6,<0.8"
+
+[package.extras]
+toml = ["tomli (>=2.0.1)"]
+
+[[package]]
 name = "rapidfuzz"
 version = "3.6.1"
 description = "rapid fuzzy string matching"
@@ -4651,6 +4689,27 @@ numpy = ">=1.19.5,<1.27.0"
 dev = ["click", "doit (>=0.36.0)", "flake8", "mypy", "pycodestyle", "pydevtool", "rich-click", "typing_extensions"]
 doc = ["matplotlib (>2)", "numpydoc", "pydata-sphinx-theme (==0.9.0)", "sphinx (!=4.1.0)", "sphinx-design (>=0.2.0)"]
 test = ["asv", "gmpy2", "mpmath", "pooch", "pytest", "pytest-cov", "pytest-timeout", "pytest-xdist", "scikit-umfpack", "threadpoolctl"]
+
+[[package]]
+name = "seaborn"
+version = "0.13.2"
+description = "Statistical data visualization"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "seaborn-0.13.2-py3-none-any.whl", hash = "sha256:636f8336facf092165e27924f223d3c62ca560b1f2bb5dff7ab7fad265361987"},
+    {file = "seaborn-0.13.2.tar.gz", hash = "sha256:93e60a40988f4d65e9f4885df477e2fdaff6b73a9ded434c1ab356dd57eefff7"},
+]
+
+[package.dependencies]
+matplotlib = ">=3.4,<3.6.1 || >3.6.1"
+numpy = ">=1.20,<1.24.0 || >1.24.0"
+pandas = ">=1.2"
+
+[package.extras]
+dev = ["flake8", "flit", "mypy", "pandas-stubs", "pre-commit", "pytest", "pytest-cov", "pytest-xdist"]
+docs = ["ipykernel", "nbconvert", "numpydoc", "pydata_sphinx_theme (==0.10.0rc2)", "pyyaml", "sphinx (<6.0.0)", "sphinx-copybutton", "sphinx-design", "sphinx-issues"]
+stats = ["scipy (>=1.7)", "statsmodels (>=0.12)"]
 
 [[package]]
 name = "sentence-transformers"
@@ -6127,4 +6186,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">3.10, <3.12"
-content-hash = "473c956acd4a96df9254b5063fd99f6d52f5f9fdd2208515271b1ee8e4900b1f"
+content-hash = "1bf4c92d7b5c866eeefac5f74103dda1a2024f5feeeafdab13d0db2ca902c685"

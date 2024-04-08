@@ -18,14 +18,18 @@ config_list = [
         "model": "gpt-4-1106-preview",
         "api_key": os.environ.get("OPENAI_APIKEY2"),
     },
-    {
-        "model": "gpt-3.5-turbo",
-        "api_key": os.environ.get("OPENAI_APIKEY2"),
-    },
-    {
-        "model": "gpt-3.5-turbo-16k",
-        "api_key": os.environ.get("OPENAI_APIKEY2"),
-    },
+    # {
+    #     "model": "gpt-3.5-turbo-0125",
+    #     "api_key": os.environ.get("OPENAI_APIKEY2"),
+    # },
+    # {
+    #     "model": "gpt-3.5-turbo",
+    #     "api_key": os.environ.get("OPENAI_APIKEY2"),
+    # },
+    # {
+    #     "model": "gpt-3.5-turbo-16k",
+    #     "api_key": os.environ.get("OPENAI_APIKEY2"),
+    # },
 ]
 
 base_cfg = {
@@ -36,12 +40,14 @@ base_cfg = {
 }
 
 gcconf = {
-    "config_list": [
-        {
-            "model": "gpt-3.5-turbo",
-            "api_key": os.environ.get("OPENAI_APIKEY2"),
-        }
-    ]
+    "config_list": config_list,
+    # "config_list": [
+    #     {
+    #         "model": "gpt-3.5-turbo",
+    #         "api_key": os.environ.get("OPENAI_APIKEY2"),
+    #     }
+    # ],
+    "cache_seed": 43,
 }
 
 retrieve_conf = {
@@ -50,23 +56,23 @@ retrieve_conf = {
             "model": "gpt-3.5-turbo",
             "api_key": os.environ.get("OPENAI_APIKEY2"),
         }
-    ]
-    # "functions": [
-    #     {
-    #         "name": "retrieve_content",
-    #         "description": "retrieve content for code generation and question answering.",
-    #         "parameters": {
-    #             "type": "object",
-    #             "properties": {
-    #                 "message": {
-    #                     "type": "string",
-    #                     "description": "Detailed, yet concise message which keeps the original meaning and can be used to retrieve content for code generation and question answering.",
-    #                 }
-    #             },
-    #             "required": ["message"],
-    #         },
-    #     },
-    # ],
+    ],
+    "functions": [
+        {
+            "name": "retrieve_content",
+            "description": "retrieve content for code generation and question answering.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "description": "Detailed, yet concise message which keeps the original meaning and can be used to retrieve content for code generation and question answering.",
+                    }
+                },
+                "required": ["message"],
+            },
+        },
+    ],
     # "timeout": 180,
     # "max_retries": 5,
     # "seed": 42,

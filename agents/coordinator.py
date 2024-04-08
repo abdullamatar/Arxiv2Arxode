@@ -1,3 +1,4 @@
+# STD LIB
 import asyncio
 import json
 import logging
@@ -5,18 +6,26 @@ import os
 from dataclasses import asdict, dataclass
 from typing import List, Optional, Tuple
 
+# autogen
 import autogen
-from autogen import (ConversableAgent, GroupChat, GroupChatManager,
-                     gather_usage_summary)
+from autogen import ConversableAgent, GroupChat, GroupChatManager, gather_usage_summary
+from autogen.agentchat.contrib.capabilities import context_handling
 
-import lib.functions as functions
+# from autogen.agentchat.contrib.capabilities.context_handling import (
+#     truncate_str_to_tokens,
+#     TransformChatHistory,
+# )
+
+
+# A2A
+# import lib.functions as functions
 from agents.agent import EmbeddingRetrieverAgent, GCManager, marl
 from agents.agent_conf import base_cfg, gcconf, retrieve_conf
 
 logger = logging.getLogger("coordinator")
 logging.basicConfig(
     level=logging.INFO,
-    filename="./logs/coordinator.log",
+    filename="./logs/final_convs.log",
     format="%(asctime)s  👁‍🗨  %(levelname)s  👁‍🗨 from mod %(module)s:\n%(message)s",
 )
 
@@ -68,66 +77,6 @@ class Coordinator:
             content = m.get("content", "Error getting content")
             logger.info(f"SENDER {agent_name}:\nCONTENT: {content}")
 
-    async def a_code_gen_group_chat(self, prompt: str) -> None:
-        """
-        Run a group chat with the agents and generate code
-        """
-        self._reset_agents(self.agents)
-        main_uprox, retriever, code_review, coding_llm = self.agents
-        gc = GroupChat(
-            agents=[main_uprox, code_review, coding_llm],
-            messages=[],
-            max_round=50,
-            speaker_selection_method="auto",
-        )
-
-        @main_uprox.register_for_execution()
-        @code_review.register_for_llm(
-            description="Retrieve additional information to complete the given task. Create a detailed query so that the retrieval is impactful in terms of information gained."
-        )
-        @coding_llm.register_for_llm(
-            description="Retrieve additional information to complete the given task. Create a detailed query so that the retrieval is impactful in terms of information gained."
-        )
-        def retrieve_content(
-            message: str,
-            n_results: int = 7,
-            # retriever: ConversableAgent = retriever,
-        ) -> str:
-            retriever.n_results = n_results
-
-            (
-                update_context_case1,
-                update_context_case2,
-            ) = retriever._check_update_context(message)
-
-            if (
-                update_context_case1 or update_context_case2
-            ) and retriever.update_context:
-                retriever.problem = (
-                    message if not hasattr(retriever, "problem") else retriever.problem
-                )
-                _, ret_msg = retriever._generate_retrieve_user_reply(message)
-            else:
-                ret_msg = retriever.generate_init_message(message, n_results=n_results)
-            return ret_msg if ret_msg else message
-
-        # for agent in [code_review, coding_llm]:
-        #     if isinstance(agent, autogen.AssistantAgent):
-        #         logger.info(f"updating llm_config for {agent.name}")
-        #         agent.llm_config.update(retrieve_conf)
-
-        # agent.register_function(
-        #     function_map={
-        #         "retrieve_content": retrieve_content,
-        #     }
-        # )
-
-        gcman = GroupChatManager(groupchat=gc, llm_config=base_cfg)
-        await main_uprox.a_initiate_chat(
-            gcman,
-            message=prompt,
-        )
-
     def code_gen_group_chat(self, prompt: str, epochs: int = 5) -> None:
         """
         Run a group chat with the agents and generate code
@@ -178,28 +127,23 @@ class Coordinator:
                 # ret_msg = retriever.generate_init_message(message=message, n_results=7)
             return ret_msg if ret_msg else message
 
-        # !!!!!!!!!!!!! THIS FIXME IS C R I T I C A L !!!!!!!!!!!!!
-        # FIXME: Runtime ratelimit error: https://microsoft.github.io/autogen/docs/Use-Cases/enhanced_inference/#runtime-error
-        # TODO: Start with model conf, rag can use gpt3.5, if anything...
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # TODO: Why the coding_agent returns None sometimes...
         # TODO: https://github.com/olimoz/AI_Teams_AutoGen/blob/main/JupyterNotebooksForAutoGen.ipynb
-
         gcman = GCManager(groupchat=gc, llm_config=gcconf)
 
-        # gcman.register_reply(
-        #     trigger=[autogen.Agent, None],
-        #     reply_func=functions.get_code_blocks,
-        #     config={"callback": None},
+        # 16k token limits for gpt-3.5 family #The below token limitation stuff can be ignrored when using gpt3.5 see the function in agents.py file
+        # it is a hacky, unstable work around as the below Transform was not working right when AutoGen released it and I had to change the code internally to get it to work. :).
+
+        # However, there is not harm in trying to execute the below if running into token limit problems when testing models with smaller context windows :/.
+
+        # ctx = context_handling.TransformChatHistory(
+        #     transforms=[
+        #         context_handling.MessageTokenLimiter(max_tokens_per_message=15000)
+        #     ],
         # )
 
-        # # gcman._groupchat.
-
-        # main_uprox.register_reply(
-        #     trigger=[autogen.Agent, None],
-        #     reply_func=functions.get_code_blocks,
-        #     config={"callback": None},
-        # )
+        # for agent in [main_uprox, code_review, coding_llm]:
+        #     ctx.add_to_agent(agent)
+        # ctx.add_to_agent(gcman)
 
         # init chat calls the main reply function registered with the gcman, which is the run_chat function def'd in the GCman class
         main_uprox.initiate_chat(
@@ -208,55 +152,61 @@ class Coordinator:
             # clear_history=False,
         )
 
-        # logger.info(f"gcman last message: {gcman.last_message(coding_llm)}")
-        # logger.info(f"Entire msg history: {gcman.chat_messages}")
-        # logger.info(
-        #     f"Agent descriptions: {[agent.description for agent in self.agents]}"
-        # )
+        assert (
+            gc.messages
+        ), "Something has gone awry..."  # This assertion will almost certainly never fail.
 
-        # main_uprox.send(
-        #     "What was the last message exchanged?",
-        #     recipient=gcman,
-        # )
+        self.log_gc_messages(gc.messages)
 
         # !EVAL
-        # combined_stats = {
-        #     "task_description": prompt,
-        #     "usage_stats": {},
-        #     "exe_feedback": [],
-        # }
-        # all_agents = self.agents + [gcman]
-        # total, _ = gather_usage_summary(all_agents)
-        # combined_stats["usage_stats"] = total
-        # combined_stats["exe_feedback"] = gcman.execution_feedback_list
 
-        # exit_codes = [
-        #     feedback["exit_code"] for feedback in gcman.execution_feedback_list
-        # ]
+        combined_stats = {
+            "task_description": prompt,
+            "usage_stats": {},
+            "exe_feedback": [],
+        }
+        all_agents = self.agents + [gcman]
+        total, _ = gather_usage_summary(all_agents)
+        combined_stats["usage_stats"] = total
+        combined_stats["exe_feedback"] = gcman.execution_feedback_list
 
-        # combined_stats["exit_codes"] = exit_codes
-        # with open("combined_stats.jsonl", "a") as f:
-        #     f.write(json.dumps(combined_stats) + "\n")
+        exit_codes = [
+            feedback["exit_code"] for feedback in gcman.execution_feedback_list
+        ]
+
+        combined_stats["exit_codes"] = exit_codes
+        with open("additional_retries_a2a_turbo.jsonl", "a") as f:
+            f.write(json.dumps(combined_stats) + "\n")
+
         # !EVAL
-
-        # logger.info(f"Total usage summary: {gather_usage_summary([gcman])}")
 
 
 if __name__ == "__main__":
-    # asyncio.run(
-    #     Coordinator(
-    #         team_name="test",
-    #         agents=create_rl_team(),
-    #         functions=functions.Functions,
-    #     ).a_code_gen_group_chat(
-    #         "Recreate a minimal concept from the agent tuning paper for me in a self-contained python file."
-    #     )
-    # )
 
-    print("Starting the coordinator")
+    # with open("./temp.jsonl", "r") as f:
+    #     tasks = [json.loads(line) for line in f]
+
+    # for i in tasks:
+    #     td = i["task_description"]
+    #     vecdb = i["vec_db"]
+
+    # print(f"Launching coordinator for task: {td} and associated db {vecdb}")
+
     Coordinator(
         team_name="test",
-        agents=marl(collection_name="eval_db"),
+        agents=marl(collection_name="eval2_db_rlsemiparam_with_code_embeddings"),
     ).code_gen_group_chat(
-        "What does the author say in his bibliographic remarks section?"
+        "Create a python file that highlights how exactly experience memory can be updated using a RL policy, recreate a minimal executable example for me, do not make any assumptions or fill any functions with the pass keyword or ellipses."
     )
+
+# for task in tasks:
+#     Coordinator(
+#         team_name="test",
+#         agents=marl(collection_name="cs_demo"),
+#     ).code_gen_group_chat(task)
+# Coordinator(
+#     team_name="test",
+#     agents=marl(collection_name="eval4_db_guidingpretraining"),
+# ).code_gen_group_chat(
+#     "Show me how an RL agents exploration can be guiding with LLM priors according to the paper. Create a minimal example in a self-contained python file that must be executable and produce an output, do not make any assumptions or fill any functions with the pass keyword or ellipses."
+# )

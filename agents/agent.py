@@ -6,11 +6,14 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 from uuid import uuid4
 
 # autogen
-from autogen import AssistantAgent  # config_list_from_json,
-from autogen import (Agent, ConversableAgent, GroupChatManager, OpenAIWrapper,
-                     UserProxyAgent)
-from autogen.agentchat.contrib.retrieve_user_proxy_agent import \
-    RetrieveUserProxyAgent
+from autogen import AssistantAgent
+from autogen import (
+    Agent,
+    ConversableAgent,
+    GroupChatManager,
+    UserProxyAgent,
+)
+from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
 from autogen.agentchat.groupchat import GroupChat
 from autogen.code_utils import extract_code
 
@@ -71,7 +74,7 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
     def query_vector_db(
         self,
         query_texts: List[str],
-        n_results: int = 10,
+        n_results: int = 5,
         search_string: str = None,
         **kwargs,
     ) -> Dict[str, List[List[str]]]:
@@ -110,9 +113,41 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
             # embedding_model="text-embedding-ada-002",
             **kwargs,
         )
+
         # TODO: The northern winds blow strong...
         self._results = results  # Why?: It is a class property; state repr i guess?
         # return results
+
+    # This is taken directly from the RetrieveUserProxyAgent class from autogen and is used as a hacky workaround to abide by the token limit of the 3.5 family of models, it is commented out when using gpt4+.
+    def _get_context(self, results: Dict[str, List[str] | List[List[str]]]):
+        doc_contents = ""
+        current_tokens = 0
+        _doc_idx = self._doc_idx
+        _tmp_retrieve_count = 0
+        for idx, doc in enumerate(results["documents"][0][:5]):
+            if idx <= _doc_idx:
+                continue
+            if results["ids"][0][idx] in self._doc_ids:
+                continue
+            _doc_tokens = self.custom_token_count_function(doc, self._model)
+            if _doc_tokens > self._context_max_tokens:
+                func_print = f"Skip doc_id {results['ids'][0][idx]} as it is too long to fit in the context."
+                print((func_print))
+                self._doc_idx = idx
+                continue
+            if current_tokens + _doc_tokens > self._context_max_tokens:
+                break
+            func_print = f"Adding doc_id {results['ids'][0][idx]} to context."
+            print((func_print))
+            current_tokens += _doc_tokens
+            doc_contents += doc + "\n"
+            self._doc_idx = idx
+            self._doc_ids.append(results["ids"][0][idx])
+            self._doc_contents.append(doc)
+            _tmp_retrieve_count += 1
+            if _tmp_retrieve_count >= self.n_results:
+                break
+        return doc_contents
 
     # def generate_init_message(
     #     self, problem: str, n_results: int = 20, search_string: str = ""
@@ -139,7 +174,7 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
     # `run_code`, and `execute_function` methods respectively.
 
 
-class CodingAssistant(UserProxyAgent):
+class CodingAssistant(AssistantAgent):
     # https://github.com/microsoft/autogen/blob/main/notebook/agentchat_auto_feedback_from_code_execution.ipynb
     def __init__(
         self,
@@ -231,6 +266,8 @@ class GCManager(GroupChatManager):
             trigger=Agent, reply_func=GCManager.run_chat, config=groupchat
         )
 
+        self.execution_feedback_list = []
+
     def is_code_block(self, message: Union[Dict, str]) -> bool:
         if isinstance(message, dict) and message.get("content") is None:
             return False
@@ -250,6 +287,7 @@ class GCManager(GroupChatManager):
         config: Optional[GroupChat] = None,
     ) -> Tuple[bool, Optional[str]]:
         """Run a group chat."""
+        # Adapted from /autogen/agentchat/groupchat.py:GroupChatManager.run_chat
 
         if messages is None:
             messages = self._oai_messages[sender]
@@ -269,17 +307,23 @@ class GCManager(GroupChatManager):
             # Isolate the coding LLM
             coding_llm: CodingAssistant = groupchat.agents[2]
 
+            with open("./logs/conv_final.txt", "a") as f:
+                f.write(f"Round {i}\n")
+                f.write(f"{speaker.name}:\n")
+                f.write(f"{message['content']}\n")
+
             groupchat.append(message, speaker)
 
             # coding_llm.
-            try:
-                logger.info(
-                    f"last msg BEGINING OF LOOP: {coding_llm.last_message(self)}"
-                )
-            except Exception as e:
-                print(e)
-                # e.add_note()
-                # print(e,")
+            # try:
+            #     logger.info(
+            #         f"last msg BEGINING OF LOOP: {coding_llm.last_message(self)}"
+            #     )
+            # except Exception as e:
+            #     print(e)
+
+            # e.add_note()
+            # print(e,")
 
             ##############################################
             # extract code returns list of tuples - > [(inferred_lang, code)...]
@@ -294,8 +338,8 @@ class GCManager(GroupChatManager):
             # if self._is_termination_msg(message):
             # The conversation is over
             #   break
-            # broadcast the message to all agents except the speaker
 
+            # broadcast the message to all agents except the speaker
             for agent in groupchat.agents:
                 if agent != speaker:
                     self.send(message, agent, request_reply=False, silent=True)
@@ -328,8 +372,8 @@ class GCManager(GroupChatManager):
                         [
                             *messages[-3:],
                             {
-                                "content": f"{exe_feedback}\nGenerate an evaluation score for the code that has been generated given the above status, give the score first and then whatever suggestion you deem fit and necessary. REPLY EXACTLY EVALUATION SCORE=<score> followed by your suggestion on a new line where <score> is a float between 0 and 1.",
                                 "role": "assistant",
+                                "content": f"{exe_feedback}\nGenerate an evaluation score for the code that has been generated given the above status, give the score first and then whatever suggestion you deem fit and necessary. REPLY EXACTLY EVALUATION SCORE=<score> followed by your suggestion on a new line where <score> is a float between 0 and 1.",
                             },
                         ],
                         sender=self,
@@ -338,10 +382,13 @@ class GCManager(GroupChatManager):
 
                     # print(f"Reply: {reply}")
                     # print(f"typeof reply: {type(reply)}")
-                    evaluation_score = re.findall(
-                        score_pattern,
-                        reply if isinstance(reply, str) else reply["content"],
-                    )
+                    try:
+                        evaluation_score = re.findall(
+                            score_pattern,
+                            reply if isinstance(reply, str) else reply["content"],
+                        )
+                    except Exception as e:
+                        evaluation_score = -1
                     logger.info(f"Evaluation score: {evaluation_score}")
 
                 ###########################  A2A  ###################################
@@ -349,9 +396,10 @@ class GCManager(GroupChatManager):
                 ###########################  A2A  ###################################
                 ###########################  A2A  ###################################
                 else:
+                    # Let whoever the speaker is reply
                     reply = speaker.generate_reply(sender=self)
+
             except KeyboardInterrupt:
-                # let the admin agent speak if interrupted
                 if groupchat.admin_name in groupchat.agent_names:
                     # admin agent is one of the participants
                     speaker = groupchat.agent_by_name(groupchat.admin_name)
@@ -369,6 +417,7 @@ class GCManager(GroupChatManager):
             #     reply["content"] = self.clear_agents_history(
             #         reply["content"], groupchat
             #     )
+
             # The speaker sends the message without requesting a reply
             speaker.send(reply, self, request_reply=False)
             message = self.last_message(speaker)
@@ -378,10 +427,12 @@ class GCManager(GroupChatManager):
                     message,
                 )
 
-                logger.info(f"Execution feedback: {exe_feedback}")
+                # logger.info(f"Execution feedback: {exe_feedback}")
 
-                # dumb hack to make sure the code reviewer gets the feedback
+                # dumb hack to make sure the code reviewer has the chance to get the exe_feedback and evaluate
                 i = 4 if i == (groupchat.max_round - 1) else i
+
+                self.execution_feedback_list.extend(exe_feedback)
 
             # print(f"last message after assigning: {message}")
             # if i == groupchat.max_round - 1:
@@ -406,7 +457,7 @@ Sometimes, there might be a need to use RetrieveUserProxyAgent in group chat wit
 # rc: https://microsoft.github.io/autogen/blog/2023/10/18/RetrieveChat/
 
 
-def marl(collection_name: str = "init_vecdb") -> List[ConversableAgent]:
+def marl(collection_name: str) -> List[ConversableAgent]:
     # TODO: role def, assAgent for function/tool selection, user prox for eval() https://microsoft.github.io/autogen/docs/Use-Cases/agent_chat/#enhanced-inference
     agent0 = UserProxyAgent(
         name="main_userproxy",
@@ -447,10 +498,11 @@ def marl(collection_name: str = "init_vecdb") -> List[ConversableAgent]:
         is_termination_msg=termination_msg,
         code_execution_config=False,
     )
+
     agent3 = CodingAssistant(
         name="coding_agent",
         system_message="Your role is to generate and execute code based off of the information provided by the retrieval agent and the code reviewer agent. Make sure you generate code in a step by step manner, use the feedback provided to improve your code. ALWAYS generate your code in a single code block and do not break it up, any comments you want to make can be added as comments in the code block.",
-        description="A coding agent that is tasked with iteratively generating code based off of the information provided by the retrieval agent and the code reviewer agent.",
+        description="A coding agent that is tasked with iteratively generating code based off of the information provided by the retrieval agent and the code reviewer agent. You must always generate a meaningful implementation of the topic at hand.",
         code_execution_config={
             "work_dir": "./sandbox",
             "use_docker": False,

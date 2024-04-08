@@ -4,6 +4,9 @@
 > This repository hosts the development of my undergraduate research project. The aim is to automate code generation based off of information internalized from artificial intelligence and machine learning research papers. In hopes of exploring the capabilities of current state-of-the-art models and how to pose them as task solving agents.
 
 ----------
+## Known Issues
+
+- Sometimes at the end of a groupchat conversation, right before ending the final round an OpenAI error will be thrown due to a call being made for a certain tool without the correct `role` assigned to the message sender (tool caller).
 ## Installation
 
 #### Prerequisites:

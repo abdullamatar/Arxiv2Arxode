@@ -9,11 +9,13 @@ from autogen.code_utils import execute_code, extract_code
 
 from utils.misc import ftos, write_file
 
-# logging.basicConfig(
-#     level=logging.INFO,
-#     format="%(asctime)s  👁‍🗨  %(levelname)s  👁‍🗨  :\n%(message)s",
-#     handlers=[logging.StreamHandler()],
-# )
+############NOTE##################
+# THIS FILE IS NOT USED ANYWHERE #
+############NOTE##################
+
+if not os.path.exists("./logs"):
+    os.makedirs("./logs")
+
 funchand = logging.FileHandler("./logs/functions.log")
 logger = logging.getLogger("functions")
 logger.addHandler(funchand)
