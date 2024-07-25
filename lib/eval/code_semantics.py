@@ -1,10 +1,11 @@
 import json
 
-# import logging
-
 import matplotlib.pyplot as plt
 import numpy as np
 from autogen import OpenAIWrapper
+
+# import logging
+
 
 
 def get_code_attempts(file_path):

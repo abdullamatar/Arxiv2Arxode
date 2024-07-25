@@ -6,25 +6,19 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 from uuid import uuid4
 
 # autogen
-from autogen import AssistantAgent
-from autogen import (
-    Agent,
-    ConversableAgent,
-    GroupChatManager,
-    UserProxyAgent,
-)
-from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
+from autogen import (Agent, AssistantAgent, ConversableAgent, GroupChatManager,
+                     UserProxyAgent)
+from autogen.agentchat.contrib.retrieve_user_proxy_agent import \
+    RetrieveUserProxyAgent
 from autogen.agentchat.groupchat import GroupChat
 from autogen.code_utils import extract_code
+from trulens_eval.tru_custom_app import instrument
 
 # A2A
 # import agents.agent_conf as agent_conf
 from agents.agent_conf import base_cfg, retrieve_conf
 from lib.embeddings import get_db_connection, get_embedding_func
 from utils.misc import write_file
-
-
-from trulens_eval.tru_custom_app import instrument
 
 logger = logging.getLogger("agents")
 

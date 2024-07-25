@@ -7,10 +7,6 @@ from typing import List, Optional
 from dotenv import load_dotenv
 from langchain.document_loaders import DirectoryLoader, PyPDFLoader
 from langchain.document_loaders.python import PythonLoader
-
-# Changed and updated below import, hopefully nothing breaks...
-from langchain_openai import OpenAIEmbeddings
-
 # from langchain.embeddings.openai import OpenAIEmbeddings
 # from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.schema.document import Document
@@ -18,6 +14,8 @@ from langchain.schema.embeddings import Embeddings
 from langchain.schema.vectorstore import VectorStore
 from langchain.text_splitter import Language, RecursiveCharacterTextSplitter
 from langchain.vectorstores.pgvector import PGVector
+# Changed and updated below import, hopefully nothing breaks...
+from langchain_openai import OpenAIEmbeddings
 
 load_dotenv()
 openaikey = os.environ.get("OPENAI_APIKEY")

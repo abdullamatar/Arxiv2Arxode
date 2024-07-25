@@ -8,14 +8,9 @@ from typing import List, Optional, Tuple
 
 # autogen
 import autogen
-from autogen import ConversableAgent, GroupChat, GroupChatManager, gather_usage_summary
+from autogen import (ConversableAgent, GroupChat, GroupChatManager,
+                     gather_usage_summary)
 from autogen.agentchat.contrib.capabilities import context_handling
-
-# from autogen.agentchat.contrib.capabilities.context_handling import (
-#     truncate_str_to_tokens,
-#     TransformChatHistory,
-# )
-
 # TruLens
 from trulens_eval.tru_custom_app import instrument
 
@@ -23,6 +18,13 @@ from trulens_eval.tru_custom_app import instrument
 # import lib.functions as functions
 from agents.agent import EmbeddingRetrieverAgent, GCManager, marl
 from agents.agent_conf import base_cfg, gcconf, retrieve_conf
+
+# from autogen.agentchat.contrib.capabilities.context_handling import (
+#     truncate_str_to_tokens,
+#     TransformChatHistory,
+# )
+
+
 
 logger = logging.getLogger("coordinator")
 logging.basicConfig(

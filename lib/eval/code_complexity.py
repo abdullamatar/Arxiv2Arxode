@@ -2,7 +2,6 @@ import json
 
 from radon.cli import Config
 from radon.complexity import cc_visit
-
 # import radon.visitors as vs
 from radon.metrics import h_visit
 
