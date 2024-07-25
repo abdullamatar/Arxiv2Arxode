@@ -10,3 +10,4 @@ temp*
 .cache
 .mypy_cache
 logs
+sandbox

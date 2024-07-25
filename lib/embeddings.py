@@ -7,7 +7,12 @@ from typing import List, Optional
 from dotenv import load_dotenv
 from langchain.document_loaders import DirectoryLoader, PyPDFLoader
 from langchain.document_loaders.python import PythonLoader
-from langchain.embeddings.openai import OpenAIEmbeddings
+
+# Changed and updated below import, hopefully nothing breaks...
+from langchain_openai import OpenAIEmbeddings
+
+# from langchain.embeddings.openai import OpenAIEmbeddings
+# from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.schema.document import Document
 from langchain.schema.embeddings import Embeddings
 from langchain.schema.vectorstore import VectorStore
@@ -94,15 +99,18 @@ def create_embedding_collection(
 
 def load_and_chunk_code(
     code_path: str,
+    single_file: Optional[bool] = False,
 ) -> List[Document]:
     """Create code embeddings given a path to a directory of python files."""
     # text-embedding-ada-002 embedding model used by default, which is also the best openai model for code embeddings
 
     code_path = os.path.abspath(code_path)
-
-    loader = DirectoryLoader(
-        code_path, glob="**/*.py", loader_cls=PythonLoader, show_progress=True
-    )
+    if single_file:
+        loader = PythonLoader(code_path)
+    else:
+        loader = DirectoryLoader(
+            code_path, glob="**/*.py", loader_cls=PythonLoader, show_progress=True
+        )
 
     # print(len(python_documents), type(python_documents))
     # print(RecursiveCharacterTextSplitter.get_separators_for_language(Language.PYTHON))

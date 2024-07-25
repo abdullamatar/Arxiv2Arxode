@@ -23,6 +23,9 @@ from agents.agent_conf import base_cfg, retrieve_conf
 from lib.embeddings import get_db_connection, get_embedding_func
 from utils.misc import write_file
 
+
+from trulens_eval.tru_custom_app import instrument
+
 logger = logging.getLogger("agents")
 
 # U N D E R  C O N S T R U C T I O N
@@ -96,6 +99,17 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
             ],
         }  # type: ignore
 
+    @instrument
+    def generate_reply(
+        self,
+        messages: List[Dict[str, Any]] | None = None,
+        sender: Agent | None = None,
+        **kwargs: Any,
+    ) -> str | Dict | None:
+        return super().generate_reply(messages, sender, **kwargs)
+
+    # Trying to add trulens support
+    @instrument
     def retrieve_docs(
         self, problem: str, n_results: int = 4, search_string: str = "", **kwargs
     ):
@@ -200,6 +214,16 @@ class CodingAssistant(AssistantAgent):
         )
         # self.register_reply(trigger=[Agent, None], reply_func=self.i)
 
+    # see comment in GCManager subclass
+    @instrument
+    def generate_reply(
+        self,
+        messages: List[Dict[str, Any]] | None = None,
+        sender: Agent | None = None,
+        **kwargs: Any,
+    ) -> str | Dict | None:
+        return super().generate_reply(messages, sender, **kwargs)
+
     def detect_and_execute_code(
         self,
         message,
@@ -267,6 +291,16 @@ class GCManager(GroupChatManager):
         )
 
         self.execution_feedback_list = []
+
+    # trulens has this instrument decorator on gen_completion methods and retrieval methods, they are added to each agents generate reply, however it seems to expect a str while in autogen the generate_reply methods return may return a dict or None, nice :D...
+    @instrument
+    def generate_reply(
+        self,
+        messages: List[Dict[str, Any]] | None = None,
+        sender: Agent | None = None,
+        **kwargs: Any,
+    ) -> str | Dict | None:
+        return super().generate_reply(messages, sender, **kwargs)
 
     def is_code_block(self, message: Union[Dict, str]) -> bool:
         if isinstance(message, dict) and message.get("content") is None:

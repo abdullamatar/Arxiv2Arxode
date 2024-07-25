@@ -16,6 +16,8 @@ from autogen.agentchat.contrib.capabilities import context_handling
 #     TransformChatHistory,
 # )
 
+# TruLens
+from trulens_eval.tru_custom_app import instrument
 
 # A2A
 # import lib.functions as functions
@@ -77,6 +79,7 @@ class Coordinator:
             content = m.get("content", "Error getting content")
             logger.info(f"SENDER {agent_name}:\nCONTENT: {content}")
 
+    @instrument
     def code_gen_group_chat(self, prompt: str, epochs: int = 5) -> None:
         """
         Run a group chat with the agents and generate code
