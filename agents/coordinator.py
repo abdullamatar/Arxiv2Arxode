@@ -1,16 +1,14 @@
 # STD LIB
-import asyncio
+# import asyncio
 import json
 import logging
-import os
-from dataclasses import asdict, dataclass
-from typing import List, Optional, Tuple
+# import os
+from dataclasses import dataclass
+from typing import List
 
 # autogen
 import autogen
-from autogen import (ConversableAgent, GroupChat, GroupChatManager,
-                     gather_usage_summary)
-from autogen.agentchat.contrib.capabilities import context_handling
+from autogen import ConversableAgent, GroupChat, gather_usage_summary
 # TruLens
 from trulens_eval.tru_custom_app import instrument
 
@@ -19,10 +17,8 @@ from trulens_eval.tru_custom_app import instrument
 from agents.agent import EmbeddingRetrieverAgent, GCManager, marl
 from agents.agent_conf import base_cfg, gcconf, retrieve_conf
 
-# from autogen.agentchat.contrib.capabilities.context_handling import (
-#     truncate_str_to_tokens,
-#     TransformChatHistory,
-# )
+# from autogen.agentchat.contrib.capabilities import context_handling
+
 
 
 logger = logging.getLogger("coordinator")
