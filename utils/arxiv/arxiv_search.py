@@ -29,6 +29,7 @@ It is lightweight, and human readable, and results can be cleanly read in many w
 
 class ArxivScraper:
     def __init__(self):
+        # ???? u s e l e s s ????
         self.client = arxiv.Client()
 
     def search_papers(
@@ -61,18 +62,28 @@ class ArxivScraper:
 
     def download_papers(
         self,
-        papers: List[axp.ArxivPaper],
+        papers: List[axp.ArxivPaper] = [],
+        ids: List[str] = [],
         fname_template: str = "{title}.pdf",
         *,
-        dirpath: str
+        dirpath: Path,
     ) -> None:
         """Downloads all papers returned by the search query into a given directory."""
+
         dirpath = Path(dirpath)
         if not dirpath.exists():
             dirpath.mkdir()
-        for paper in papers:
-            piter = arxiv.Search(id_list=[paper.pid]).results()
-            next(piter).download_pdf(
+
+        if ids:
+            paper = next(arxiv.Client().results(arxiv.Search(id_list=ids)))
+            paper.download_pdf(
                 dirpath=dirpath,
                 filename=fname_template.format(title=paper.title.replace(" ", "_")),
             )
+        else:
+            for paper in papers:
+                piter = arxiv.Search(id_list=[paper.pid]).results()
+                next(piter).download_pdf(
+                    dirpath=dirpath,
+                    filename=fname_template.format(title=paper.title.replace(" ", "_")),
+                )

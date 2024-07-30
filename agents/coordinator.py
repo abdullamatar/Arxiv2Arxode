@@ -8,14 +8,9 @@ from typing import List, Optional, Tuple
 
 # autogen
 import autogen
-from autogen import ConversableAgent, GroupChat, GroupChatManager, gather_usage_summary
+from autogen import (ConversableAgent, GroupChat, GroupChatManager,
+                     gather_usage_summary)
 from autogen.agentchat.contrib.capabilities import context_handling
-
-# from autogen.agentchat.contrib.capabilities.context_handling import (
-#     truncate_str_to_tokens,
-#     TransformChatHistory,
-# )
-
 # TruLens
 from trulens_eval.tru_custom_app import instrument
 
@@ -23,6 +18,12 @@ from trulens_eval.tru_custom_app import instrument
 # import lib.functions as functions
 from agents.agent import EmbeddingRetrieverAgent, GCManager, marl
 from agents.agent_conf import base_cfg, gcconf, retrieve_conf
+
+# from autogen.agentchat.contrib.capabilities.context_handling import (
+#     truncate_str_to_tokens,
+#     TransformChatHistory,
+# )
+
 
 logger = logging.getLogger("coordinator")
 logging.basicConfig(
@@ -44,16 +45,6 @@ class Chat:
     message: str
 
 
-@dataclass
-class ConversationResult:
-    success: bool
-    messages: List[Chat]
-    cost: float
-    tokens: int
-    last_message_str: str
-    error_message: str
-
-
 class Coordinator:
     """Manage sequential multi-agent conversations"""
 
@@ -64,6 +55,7 @@ class Coordinator:
     ):
         self.team_name = team_name
         self.agents = agents
+        # messages & chats? Something seems off, I blame autogen :p
         self.messages = []
         # List of chats - {sender, receiver, message}
         self.chats: List[Chat] = []
@@ -79,7 +71,8 @@ class Coordinator:
             content = m.get("content", "Error getting content")
             logger.info(f"SENDER {agent_name}:\nCONTENT: {content}")
 
-    @instrument
+    # !
+    # @instrument
     def code_gen_group_chat(self, prompt: str, epochs: int = 5) -> None:
         """
         Run a group chat with the agents and generate code

@@ -11,3 +11,5 @@ temp*
 .mypy_cache
 logs
 sandbox
+**/datasets
+**/MLBench_papers
