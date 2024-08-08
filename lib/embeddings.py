@@ -48,7 +48,7 @@ def load_and_chunk_papers(
     return loader.load_and_split(text_splitter)
 
 
-def get_embedding_func(model: str = "text-embedding-ada-002") -> Embeddings:
+def get_embedding_func(model: str = "text-embedding-3-large") -> Embeddings:
     """
     Select how to create embeddings for the pdf, i.e. Word2Vec, GloVe, sentencepiece, openAI, llama, mistral...
 
@@ -124,5 +124,6 @@ if __name__ == "__main__":
     # docs = load_and_chunk_papers("./temp")
     # vdb = create_embedding_collection(docs, get_embedding_func(docs))
     # print(load_and_chunk_code("./temprepo"))
-    print(CONNECTION_STRING)
+    exit(1)
+    # print(CONNECTION_STRING)
     # print(type(load_and_chunk_code("./temprepo")))

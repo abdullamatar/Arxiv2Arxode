@@ -1,5 +1,6 @@
 # STD LIB
 import logging
+import os
 import re
 import sys
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
@@ -10,15 +11,19 @@ from autogen import (Agent, AssistantAgent, ConversableAgent, GroupChatManager,
                      UserProxyAgent)
 from autogen.agentchat.contrib.retrieve_user_proxy_agent import \
     RetrieveUserProxyAgent
+from autogen.agentchat.contrib.vectordb.base import QueryResults
 from autogen.agentchat.groupchat import GroupChat
 from autogen.code_utils import extract_code
-from trulens_eval.tru_custom_app import instrument
 
 # A2A
 # import agents.agent_conf as agent_conf
 from agents.agent_conf import base_cfg, retrieve_conf
 from lib.embeddings import get_db_connection, get_embedding_func
 from utils.misc import write_file
+
+# TrueLens
+# from trulens_eval.tru_custom_app import instrument
+
 
 logger = logging.getLogger("agents")
 
@@ -33,6 +38,7 @@ termination_msg = (
     lambda x: len(re.findall(r"TERMINATE", str(x.get("content", ""))[-9:].upper())) > 0
 )
 
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # termination_msg = (
 #     lambda x: isinstance(x, dict)
 #     and "TERMINATE" == str(x.get("content", ""))[-9:].upper()
@@ -56,9 +62,10 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         # TODO: cname as param to __init__ (datastore_name?), ef as well?
         self.embedding_function = get_embedding_func()
         self.dbconn = get_db_connection(
-            cname=collection_name if collection_name else "init_vecdb",
+            cname=collection_name,
             efunc=self.embedding_function,
         )
+        self.n_results = 5
         # self.customized_prompt
         super().__init__(
             name=name,
@@ -70,42 +77,47 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
 
     def query_vector_db(
         self,
-        query_texts: List[str],
+        # query_texts: List[str],
+        search_string: str,
         n_results: int = 5,
-        search_string: str = None,
         **kwargs,
     ) -> Dict[str, List[List[str]]]:
         # ef = get_embedding_func()
         # embed_response = self.embedding_function.embed_query(query_texts)
+        # print(n_results)
+        n_results = self.n_results
         relevant_docs = self.dbconn.similarity_search_with_relevance_scores(
-            query=query_texts,
-            k=n_results,
+            query=search_string,
+            k=int(n_results),
         )
 
         # TODO: get actual id from langchain
         sim_score = [relevant_docs[i][1] for i in range(len(relevant_docs))]
         return {
-            "ids": [[i for i in range(len(relevant_docs))]],
-            "documents": [[doc[0].page_content for doc in relevant_docs]],
+            "ids": [i for i in range(len(relevant_docs))],
+            "documents": [doc[0].page_content for doc in relevant_docs],
             "metadatas": [
                 {**doc[0].metadata, "similarity_score": score}
                 for doc, score in zip(relevant_docs, sim_score)
             ],
         }  # type: ignore
 
-    @instrument
-    def generate_reply(
-        self,
-        messages: List[Dict[str, Any]] | None = None,
-        sender: Agent | None = None,
-        **kwargs: Any,
-    ) -> str | Dict | None:
-        return super().generate_reply(messages, sender, **kwargs)
+    def transform_results_to_query_results(self, results) -> QueryResults:
+        query_results = []
+        documents = []
+        for idx in range(len(results["ids"])):
+            document = {
+                "id": results["ids"][idx],
+                "content": results["documents"][idx],
+                "metadata": results["metadatas"][idx],
+            }
+            distance = results["metadatas"][idx]["similarity_score"]
+            documents.append((document, distance))
+        query_results.append(documents)
+        return query_results
 
-    # Trying to add trulens support
-    @instrument
     def retrieve_docs(
-        self, problem: str, n_results: int = 4, search_string: str = "", **kwargs
+        self, search_string: str, problem: str, n_results: int = 5, **kwargs
     ):
         """
         Args:
@@ -113,20 +125,24 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
             n_results: the number of results to be retrieved. Default is 20.
             search_string: only docs that contain an exact match of this string will be retrieved. Default is "".
         """
-        results = self.query_vector_db(
-            query_texts=problem,
-            n_results=n_results,
-            search_string=search_string,
-            # embedding_function=get_embedding_func(),
-            # embedding_model="text-embedding-ada-002",
-            **kwargs,
+        results = self.transform_results_to_query_results(
+            self.query_vector_db(
+                # query_texts=[problem],
+                n_results=n_results,
+                search_string=search_string,
+                # embedding_function=get_embedding_func(),
+                # embedding_model="text-embedding-ada-002",
+                **kwargs,
+            )
         )
 
+        self._search_string = search_string
         # TODO: The northern winds blow strong...
         self._results = results  # Why?: It is a class property; state repr i guess?
         # return results
 
-    # This is taken directly from the RetrieveUserProxyAgent class from autogen and is used as a hacky workaround to abide by the token limit of the 3.5 family of models, it is commented out when using gpt4+.
+    # This is taken directly from the RetrieveUserProxyAgent class from autogen and is used as a hacky workaround to abide by the token limit of the GPT-3 family of models, it is commented out when using gpt4+.
+
     # def _get_context(self, results: Dict[str, List[str] | List[List[str]]]):
     #     doc_contents = ""
     #     current_tokens = 0
@@ -157,30 +173,6 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
     #             break
     #     return doc_contents
 
-    # def generate_init_message(
-    #     self, problem: str, n_results: int = 20, search_string: str = ""
-    # ):
-    #     return super().generate_init_message(problem, n_results, search_string)
-
-    # def generate_reply(
-    #     self,
-    #     messages: List[Dict[str, str]] | None = None,
-    #     sender: Agent | None = None,
-    #     exclude: List[Callable[..., Any]] | None = None,
-    # ) -> str | Dict | None:
-    #     return super().generate_reply(messages, sender, exclude)
-
-    # def _generate_retrieve_user_reply(
-    #     self,
-    #     messages: List[Dict] | None = None,
-    #     sender: Agent | None = None,
-    #     config: Any | None = None,
-    # ) -> Tuple[bool, str | Dict | None]:
-    #     return super()._generate_retrieve_user_reply(messages, sender, config)
-
-    # To modify the way to execute code blocks, single code block, or function call, override `execute_code_blocks`,
-    # `run_code`, and `execute_function` methods respectively.
-
 
 class CodingAssistant(AssistantAgent):
     # https://github.com/microsoft/autogen/blob/main/notebook/agentchat_auto_feedback_from_code_execution.ipynb
@@ -209,14 +201,14 @@ class CodingAssistant(AssistantAgent):
         # self.register_reply(trigger=[Agent, None], reply_func=self.i)
 
     # see comment in GCManager subclass
-    @instrument
-    def generate_reply(
-        self,
-        messages: List[Dict[str, Any]] | None = None,
-        sender: Agent | None = None,
-        **kwargs: Any,
-    ) -> str | Dict | None:
-        return super().generate_reply(messages, sender, **kwargs)
+    # @instrument
+    # def generate_reply(
+    #     self,
+    #     messages: List[Dict[str, Any]] | None = None,
+    #     sender: Agent | None = None,
+    #     **kwargs: Any,
+    # ) -> str | Dict | None:
+    #     return super().generate_reply(messages, sender, **kwargs)
 
     def detect_and_execute_code(
         self,
@@ -229,26 +221,17 @@ class CodingAssistant(AssistantAgent):
         # print(f"Typeof message: {type(message)}")
         code_blocks = extract_code(message["content"])
         if code_blocks:
-            for lang, code in code_blocks:
-                if lang == "python":
-                    # Third unpacked element is str for docker image
-                    # ? Can mod run_code as needed
-                    exit_code, logs, _ = self.run_code(code=code)
+            for _, code in code_blocks:
+                # Third unpacked element is str for docker image
+                # ? Can modify run_code as needed
+                exit_code, logs, _ = self.run_code(code=code)
 
-                    execution_feedback.append(
-                        {"code": code, "exit_code": exit_code, "logs": logs}
-                    )
-                    write_file(f"sandbox/code_{uuid4()}.py", code)
+                execution_feedback.append(
+                    {"code": code, "exit_code": exit_code, "logs": logs}
+                )
+                write_file(os.path.join(root_dir, f"sandbox/code_{uuid4()}.py"), code)
         logger.info(f"Execution feedback: {execution_feedback}")
         return execution_feedback
-
-    def i(self, recipient, messages, sender, config) -> Tuple[bool, object]:
-        return (
-            # NOTE: !😎
-            (True, "I can respond with whatever I want, I am a free agent.")
-            if False
-            else (False, None)
-        )
 
     # ! run_code called in execute_code_blocks which is called in generate_code_execution_reply
     # code is extracted in generate_*_reply
@@ -287,14 +270,14 @@ class GCManager(GroupChatManager):
         self.execution_feedback_list = []
 
     # trulens has this instrument decorator on generate completion methods and retrieval methods, they are added to each agents generate reply, however it seems to expect a str while in autogen the generate_reply methods return may return a dict or None :D...
-    @instrument
-    def generate_reply(
-        self,
-        messages: List[Dict[str, Any]] | None = None,
-        sender: Agent | None = None,
-        **kwargs: Any,
-    ) -> str | Dict | None:
-        return super().generate_reply(messages, sender, **kwargs)
+    # @instrument
+    # def generate_reply(
+    #     self,
+    #     messages: List[Dict[str, Any]] | None = None,
+    #     sender: Agent | None = None,
+    #     **kwargs: Any,
+    # ) -> str | Dict | None:
+    #     return super().generate_reply(messages, sender, **kwargs)
 
     def is_code_block(self, message: Union[Dict, str]) -> bool:
         if isinstance(message, dict) and message.get("content") is None:
@@ -302,10 +285,15 @@ class GCManager(GroupChatManager):
         elif not message:
             return False
 
+        if isinstance(message, dict):
+            content = message.get("content", "")
+        elif isinstance(message, str):
+            content = message
+
         return bool(
             re.compile(
                 r"```[ \t]*(\w+)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```", re.DOTALL
-            ).search(message if isinstance(message, str) else message["content"])
+            ).search(content)
         )
 
     def run_chat(
@@ -336,7 +324,7 @@ class GCManager(GroupChatManager):
             # change to check by name
             coding_llm: CodingAssistant = groupchat.agents[2]
 
-            with open("./logs/conv_final.txt", "a") as f:
+            with open(os.path.join(root_dir, "logs/final_convs.log"), "a") as f:
                 f.write(f"Round {i}\n")
                 f.write(f"{speaker.name}:\n")
                 f.write(f"{message['content']}\n")
@@ -357,7 +345,6 @@ class GCManager(GroupChatManager):
             ##############################################
             # extract code returns list of tuples - > [(inferred_lang, code)...]
             # ? its always gonna be a single code block I believe... depends on model X_X
-            #! avoid looping over again... for l,c in ... instead of listcompr:
             ##############################################
 
             # NOTE: How its done in ConvAg.gen_code_exe_reply
@@ -394,39 +381,38 @@ class GCManager(GroupChatManager):
 
                     reply = speaker.generate_reply(sender=self)
                     # exe_feedback = speaker.detect_and_execute_code(message)
-                    # break  # ??? break huh...
-                elif speaker.name == "code_reviewer" and exe_feedback:
-                    # speaker.
-                    reply = speaker.generate_reply(
-                        [
-                            *messages[-3:],
-                            {
-                                "role": "assistant",
-                                "content": f"{exe_feedback}\nGenerate an evaluation score for the code that has been generated given the above status, give the score first and then whatever suggestion you deem fit and necessary. REPLY EXACTLY EVALUATION SCORE=<score> followed by your suggestion on a new line where <score> is a float between 0 and 1.",
-                            },
-                        ],
-                        sender=self,
-                    )
-                    score_pattern = re.compile(r"EVALUATION SCORE=(\d+\.\d+)")
+                # elif speaker.name == "code_reviewer" and exe_feedback:
+                #     # speaker.
+                #     reply = speaker.generate_reply(
+                #         [
+                #             *messages[-3:],
+                #             {
+                #                 "role": "assistant",
+                #                 "content": f"{exe_feedback}\nGenerate an evaluation score for the code that has been generated given the above status, give the score first and then whatever suggestion you deem fit and necessary. REPLY EXACTLY EVALUATION SCORE=<score> followed by your suggestion on a new line where <score> is a float between 0 and 1.",
+                #             },
+                #         ],
+                #         sender=self,
+                #     )
+                #     score_pattern = re.compile(r"EVALUATION SCORE=(\d+\.\d+)")
 
-                    # print(f"Reply: {reply}")
-                    # print(f"typeof reply: {type(reply)}")
-                    try:
-                        evaluation_score = re.findall(
-                            score_pattern,
-                            reply if isinstance(reply, str) else reply["content"],
-                        )
-                    except Exception as e:
-                        evaluation_score = -1
-                    logger.info(f"Evaluation score: {evaluation_score}")
+                #     # print(f"Reply: {reply}")
+                #     # print(f"typeof reply: {type(reply)}")
+                #     try:
+                #         evaluation_score = re.findall(
+                #             score_pattern,
+                #             reply if isinstance(reply, str) else reply["content"],
+                #         )
+                #     except Exception as e:
+                #         evaluation_score = -1
+                #     logger.info(f"Evaluation score: {evaluation_score}")
 
                 ###########################  A2A  ###################################
                 ###########################  A2A  ###################################
                 ###########################  A2A  ###################################
                 ###########################  A2A  ###################################
-                else:
-                    # Let whoever the speaker is reply
-                    reply = speaker.generate_reply(sender=self)
+                # else:
+                # Let whoever the speaker is reply
+                reply = speaker.generate_reply(sender=self)
 
             except KeyboardInterrupt:
                 if groupchat.admin_name in groupchat.agent_names:
@@ -491,7 +477,7 @@ def marl(collection_name: str) -> List[ConversableAgent]:
     agent0 = UserProxyAgent(
         name="main_userproxy",
         human_input_mode="NEVER",
-        code_execution_config=False,
+        # code_execution_config=True,
         system_message="Conduct everything in a step by step manner, you are initiating the conversations, you are great at what you do. Please use the retrieve_content function graciously, the more information you have and gather the better.",
         description="Your role is to coordinate the completion of tasks related to generating code based off of machine learning and AI research. You must be diligent and operate in a step by step manner, make use of all the agents at your disposal.",
         llm_config=base_cfg,
@@ -506,7 +492,7 @@ def marl(collection_name: str) -> List[ConversableAgent]:
     #     },
     # )
     retriever = EmbeddingRetrieverAgent(
-        name="retrieval_agent",
+        name="retriever",
         human_input_mode="NEVER",
         system_message="Retrieve additional information to complete the given task. Create a detailed query so that the retrieval is impactful in terms of information gained.",
         description="A retrieval augmented agent whose role is to retrieve additional information when asked, you can access an embeddings database with information related to code and research papers.",
@@ -514,6 +500,7 @@ def marl(collection_name: str) -> List[ConversableAgent]:
         collection_name=collection_name,
         llm_config=retrieve_conf,
         retrieve_config={
+            **retrieve_conf,
             "task": "qa",
             "client": "psycopg2",
         },
@@ -525,16 +512,18 @@ def marl(collection_name: str) -> List[ConversableAgent]:
         system_message="Review the generated code, add to it and modify it as needed. Also retrieve additional information from the retrieval agent, plan out what you want to do and why in a step by step manner. In the end provide a score for the code generated and a suggestion for improvement.",
         llm_config=base_cfg,
         is_termination_msg=termination_msg,
-        code_execution_config=False,
+        code_execution_config={
+            "use_docker": True,
+        },
     )
 
     agent3 = CodingAssistant(
         name="coding_agent",
-        system_message="Your role is to generate and execute code based off of the information provided by the retrieval agent and the code reviewer agent. Make sure you generate code in a step by step manner, use the feedback provided to improve your code. ALWAYS generate your code in a single code block and do not break it up, any comments you want to make can be added as comments in the code block.",
+        system_message="Your role is to generate and execute code based off of the information provided by the retrieval agent and the code reviewer agent. Make sure you generate code in a step by step manner, use the feedback provided to improve your code. ALWAYS generate your code in a single code block between backticks and do not break it up, any comments you want to make can be added as comments in the code block.",
         description="A coding agent that is tasked with iteratively generating code based off of the information provided by the retrieval agent and the code reviewer agent. You must always generate a meaningful implementation of the topic at hand.",
         code_execution_config={
             "work_dir": "./sandbox",
-            "use_docker": False,
+            "use_docker": True,
             # "last_n_messages": 5,
         },
         # code_execution_config=False,

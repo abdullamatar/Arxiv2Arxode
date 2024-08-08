@@ -7,27 +7,15 @@ import os
 
 config_list = [
     {
-        "model": "gpt-4",
+        "model": "gpt-4o",
         "api_key": os.environ.get("OPENAI_APIKEY2"),
     },
     {
-        "model": "gpt-4-0125-preview",
-        "api_key": os.environ.get("OPENAI_APIKEY2"),
-    },
-    {
-        "model": "gpt-4-1106-preview",
+        "model": "gpt-4-turbo",
         "api_key": os.environ.get("OPENAI_APIKEY2"),
     },
     # {
-    #     "model": "gpt-3.5-turbo-0125",
-    #     "api_key": os.environ.get("OPENAI_APIKEY2"),
-    # },
-    # {
-    #     "model": "gpt-3.5-turbo",
-    #     "api_key": os.environ.get("OPENAI_APIKEY2"),
-    # },
-    # {
-    #     "model": "gpt-3.5-turbo-16k",
+    #     "model": "gpt-4-1106-preview",
     #     "api_key": os.environ.get("OPENAI_APIKEY2"),
     # },
 ]
@@ -47,13 +35,13 @@ gcconf = {
     #         "api_key": os.environ.get("OPENAI_APIKEY2"),
     #     }
     # ],
-    "cache_seed": 43,
+    "cache_seed": 45,
 }
 
 retrieve_conf = {
     "config_list": [
         {
-            "model": "gpt-3.5-turbo",
+            "model": "gpt-4-turbo",
             "api_key": os.environ.get("OPENAI_APIKEY2"),
         }
     ],

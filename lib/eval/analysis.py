@@ -2,7 +2,7 @@ import json
 
 import matplotlib.pyplot as plt
 import numpy as np
-from autogen import OpenAIWrapper
+# from autogen import OpenAIWrapper
 from autogen.code_utils import execute_code, extract_code
 
 # from agents.agent_conf import base_cfg

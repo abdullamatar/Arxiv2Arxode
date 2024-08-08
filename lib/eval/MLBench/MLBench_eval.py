@@ -95,8 +95,8 @@ def g():
     model = AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
 
     # print(root_dir)
-    mlbench = load_from_disk("./datasets")
-    runs = load_tasks("../../../agent_runs.jsonl")
+    mlbench = load_from_disk("./lib/eval/MLBench/datasets")
+    runs = load_tasks("./agent_runs.jsonl")
 
     tested_runs = mlbench["quarter"]
 
@@ -105,3 +105,7 @@ def g():
     )
     print(f"Average similarity: {average_similarity}, Similarities: {similarities}")
     return average_similarity, similarities
+
+
+if __name__ == "__main__":
+    g()

@@ -1,32 +1,46 @@
 # STD LIB
 # import asyncio
+# import subprocess
+# import threading
+# import queue
 import json
 import logging
-# import os
+import os
+import signal
 from dataclasses import dataclass
 from typing import List
 
 # autogen
 import autogen
 from autogen import ConversableAgent, GroupChat, gather_usage_summary
-# TruLens
-from trulens_eval.tru_custom_app import instrument
+# hf
+from datasets import load_from_disk
 
 # A2A
 # import lib.functions as functions
 from agents.agent import EmbeddingRetrieverAgent, GCManager, marl
-from agents.agent_conf import base_cfg, gcconf, retrieve_conf
+from agents.agent_conf import gcconf
+
+# TruLens
+# from trulens_eval.tru_custom_app import instrument
+
 
 # from autogen.agentchat.contrib.capabilities import context_handling
 
 
-
 logger = logging.getLogger("coordinator")
+
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 logging.basicConfig(
     level=logging.INFO,
-    filename="./logs/final_convs.log",
+    # Get the root directory of the project
+    filename=os.path.join(root_dir, "logs/coord_gc.log"),
     format="%(asctime)s  👁‍🗨  %(levelname)s  👁‍🗨 from mod %(module)s:\n%(message)s",
 )
+
+logging.getLogger("requests").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 """
 ?ATTENTION:
@@ -64,7 +78,8 @@ class Coordinator:
     def log_gc_messages(self, msgs: List[dict]) -> None:
         for m in msgs:
             agent_name = m.get("name", "Unknown")
-            content = m.get("content", "Error getting content")
+            print(m)
+            content = m["content"] or "fail"
             logger.info(f"SENDER {agent_name}:\nCONTENT: {content}")
 
     # !
@@ -78,14 +93,16 @@ class Coordinator:
         retriever: EmbeddingRetrieverAgent
 
         gc = GroupChat(
-            agents=[main_uprox, code_review, coding_llm],
+            agents=[retriever, code_review, coding_llm],
             messages=[],
-            max_round=10,
+            max_round=5,
             speaker_selection_method="auto",
-            allow_repeat_speaker=[coding_llm],
+            # allow_repeat_speaker=[coding_llm],
         )
 
         @main_uprox.register_for_execution()
+        @coding_llm.register_for_execution()
+        @code_review.register_for_execution()
         @code_review.register_for_llm(
             description="Retrieve additional information to complete the given task. Create a detailed query so that the retrieval is impactful in terms of information gained. Return several docs and use them in the context."
         )
@@ -138,9 +155,10 @@ class Coordinator:
         # ctx.add_to_agent(gcman)
 
         # init chat calls the main reply function registered with the gcman, which is the run_chat function def'd in the GCman class
-        main_uprox.initiate_chat(
+        retriever.initiate_chat(
             gcman,
-            message=prompt,
+            message=retriever.message_generator,
+            problem=prompt,
             # clear_history=False,
         )
 
@@ -167,30 +185,133 @@ class Coordinator:
         ]
 
         combined_stats["exit_codes"] = exit_codes
-        with open("additional_retries_a2a_turbo.jsonl", "a") as f:
+        with open("agent_runs.jsonl", "a") as f:
             f.write(json.dumps(combined_stats) + "\n")
 
         # !EVAL
 
 
+class TimeoutException(Exception):
+    pass
+
+
+def handler(signum, frame):
+    raise TimeoutException("Prompt skipped due to timeout")
+
+
+signal.signal(signal.SIGALRM, handler)
+
+
+def perform_iteration(mlbench, iteration):
+    # function to skip over blocking stdin prompts for whatever reason (i,e. api being required via some library).
+    try:
+        signal.alarm(80)
+
+        Coordinator(
+            team_name="test",
+            agents=marl(collection_name="MLBench_papers"),
+        ).code_gen_group_chat(
+            f"Here is some information from a readme related to the task at hand:\n {mlbench['quarter'][iteration]['oracle']}\n"
+            f"Here is the task description:\n{mlbench['quarter'][iteration]['instruction']}\n"
+            f"The type of output expected for this task is {mlbench['quarter'][iteration]['type']}"
+        )
+
+        signal.alarm(0)
+        logger.info(f"Iteration {iteration + 1} completed successfully.")
+    except TimeoutException:
+        logger.info(f"Skipping prompt for iteration {iteration + 1}")
+
+
 if __name__ == "__main__":
+
+    mlbench = load_from_disk(root_dir + "/lib/eval/MLBench/datasets/")
 
     # with open("./temp.jsonl", "r") as f:
     #     tasks = [json.loads(line) for line in f]
 
-    # for i in tasks:
-    #     td = i["task_description"]
-    #     vecdb = i["vec_db"]
+    # for i in range(len(mlbench["quarter"][20])):
+    perform_iteration(mlbench, 20)
+    # Function to read output from a subprocess without blocking
+    # def enqueue_output(out, q):
+    #     for line in iter(out.readline, b""):
+    #         q.put(line.decode("utf-8"))
+    #     out.close()
 
-    # print(f"Launching coordinator for task: {td} and associated db {vecdb}")
+    # def run_task(task_instruction):
+    #     script_content = f"""
+    # import subprocess
 
-    Coordinator(
-        team_name="test",
-        agents=marl(collection_name="eval2_db_rlsemiparam_with_code_embeddings"),
-    ).code_gen_group_chat(
-        "Create a python file that highlights how exactly experience memory can be updated using a RL policy, recreate a minimal executable example for me, do not make any assumptions or fill any functions with the pass keyword or ellipses."
-    )
+    # def main():
+    # Coordinator(
+    #     team_name="test",
+    #     agents=marl(collection_name="MLBench_papers"),
+    # ).code_gen_group_chat("retrieve some content about AC-Gans")
 
+    # if __name__ == "__main__":
+    #     main()
+    # """
+    #     # Write the script content to a temporary file
+    #     script_file = "temp_task_script.py"
+    #     with open(script_file, "w") as f:
+    #         f.write(script_content)
+
+    #     # Start the subprocess
+    #     process = subprocess.Popen(
+    #         ["python", script_file],
+    #         stdout=subprocess.PIPE,
+    #         stderr=subprocess.PIPE,
+    #         stdin=subprocess.PIPE,
+    #         bufsize=1,
+    #         universal_newlines=True,
+    #     )
+
+    #     # Create a queue to hold the subprocess output
+    #     q = queue.Queue()
+    #     t = threading.Thread(target=enqueue_output, args=(process.stdout, q))
+    #     t.daemon = True  # Thread dies with the program
+    #     t.start()
+
+    #     # Monitor the subprocess output
+    #     while True:
+    #         try:
+    #             line = q.get_nowait()  # Non-blocking read
+    #         except queue.Empty:
+    #             if process.poll() is not None:
+    #                 break  # Process finished
+    #             time.sleep(0.1)
+    #         else:
+    #             print(line, end="")  # Print the output
+
+    #             # Check if the line contains a text prompt
+    #             if "Enter" in line or "Prompt" in line:
+    #                 print("Detected prompt, terminating subprocess...")
+    #                 process.terminate()
+    #                 return False  # Indicate the round should be skipped
+
+    #     # Wait for the process to finish
+    #     process.wait()
+    #     return True  # Indicate the round completed successfully
+
+    # # mlbench = load_from_disk(root_dir + "/lib/eval/MLBench/datasets/")
+
+    # results = []
+
+    # for i in range(len(mlbench["quarter"])):
+    #     task_instruction = (
+    #         f"Here is some information from a readme related to the task at hand:\n {mlbench['quarter'][i]['oracle']}\n"
+    #         f"Here is the task description:\n{mlbench['quarter'][i]['instruction']}\n"
+    #         f"The type of output expected for this task is {mlbench['quarter'][i]['type']}"
+    #     )
+    #     success = run_task(task_instruction)
+    #     if success:
+    #         print(f"Task {i + 1} completed successfully.")
+    #         results.append(True)
+    #     else:
+    #         print(f"Task {i + 1} skipped due to prompt.")
+    #         results.append(False)
+    #     logger.info(f"Results: {results}")
+
+##################old########################
 # for task in tasks:
 #     Coordinator(
 #         team_name="test",
