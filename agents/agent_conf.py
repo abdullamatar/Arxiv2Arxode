@@ -35,8 +35,12 @@ gcconf = {
     #         "api_key": os.environ.get("OPENAI_APIKEY2"),
     #     }
     # ],
+<<<<<<< HEAD
     "cache_seed": 44,  # quarter
     # "cache_seed": 48,  # full
+=======
+    "cache_seed": 45,
+>>>>>>> 927fc54192b430379b74cd3c69be12c069fbb516
 }
 
 retrieve_conf = {

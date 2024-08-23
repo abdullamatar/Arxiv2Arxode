@@ -76,8 +76,10 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         self.embedding_function = get_embedding_func()
         self.dbconn = get_db_connection(
             cname=collection_name,
+            cname=collection_name,
             efunc=self.embedding_function,
         )
+        self.n_results = 5
         self.n_results = 5
         # self.customized_prompt
         super().__init__(
@@ -92,6 +94,8 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         self,
         # query_texts: List[str],
         search_string: str,
+        # query_texts: List[str],
+        search_string: str,
         n_results: int = 5,
         **kwargs,
     ) -> Dict[str, List[List[str]]]:
@@ -99,7 +103,11 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         # embed_response = self.embedding_function.embed_query(query_texts)
         # print(n_results)
         n_results = self.n_results
+        # print(n_results)
+        n_results = self.n_results
         relevant_docs = self.dbconn.similarity_search_with_relevance_scores(
+            query=search_string,
+            k=int(n_results),
             query=search_string,
             k=int(n_results),
         )
@@ -132,6 +140,7 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
 
     def retrieve_docs(
         self, search_string: str, problem: str, n_results: int = 5, **kwargs
+        self, search_string: str, problem: str, n_results: int = 5, **kwargs
     ):
         """
         Args:
@@ -148,12 +157,24 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
                 # embedding_model="text-embedding-ada-002",
                 **kwargs,
             )
+        results = self.transform_results_to_query_results(
+            self.query_vector_db(
+                # query_texts=[problem],
+                n_results=n_results,
+                search_string=search_string,
+                # embedding_function=get_embedding_func(),
+                # embedding_model="text-embedding-ada-002",
+                **kwargs,
+            )
         )
 
+        self._search_string = search_string
         self._search_string = search_string
         # TODO: The northern winds blow strong...
         self._results = results  # Why?: It is a class property; state repr i guess?
         # return results
+
+    # This is taken directly from the RetrieveUserProxyAgent class from autogen and is used as a hacky workaround to abide by the token limit of the GPT-3 family of models, it is commented out when using gpt4+.
 
     # This is taken directly from the RetrieveUserProxyAgent class from autogen and is used as a hacky workaround to abide by the token limit of the GPT-3 family of models, it is commented out when using gpt4+.
 
@@ -215,6 +236,14 @@ class CodingAssistant(AssistantAgent):
         # self.register_reply(trigger=[Agent, None], reply_func=self.i)
 
     # see comment in GCManager subclass
+    # @instrument
+    # def generate_reply(
+    #     self,
+    #     messages: List[Dict[str, Any]] | None = None,
+    #     sender: Agent | None = None,
+    #     **kwargs: Any,
+    # ) -> str | Dict | None:
+    #     return super().generate_reply(messages, sender, **kwargs)
     # @instrument
     # def generate_reply(
     #     self,
@@ -297,6 +326,14 @@ class GCManager(GroupChatManager):
     #     **kwargs: Any,
     # ) -> str | Dict | None:
     #     return super().generate_reply(messages, sender, **kwargs)
+    # @instrument
+    # def generate_reply(
+    #     self,
+    #     messages: List[Dict[str, Any]] | None = None,
+    #     sender: Agent | None = None,
+    #     **kwargs: Any,
+    # ) -> str | Dict | None:
+    #     return super().generate_reply(messages, sender, **kwargs)
 
     def is_code_block(self, message: Union[Dict, str]) -> bool:
         if isinstance(message, dict) and message.get("content") is None:
@@ -309,9 +346,15 @@ class GCManager(GroupChatManager):
         elif isinstance(message, str):
             content = message
 
+        if isinstance(message, dict):
+            content = message.get("content", "")
+        elif isinstance(message, str):
+            content = message
+
         return bool(
             re.compile(
                 r"```[ \t]*(\w+)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```", re.DOTALL
+            ).search(content)
             ).search(content)
         )
 
@@ -345,6 +388,7 @@ class GCManager(GroupChatManager):
             # Isolate the coding LLM
             # change to check by name
 
+            with open(os.path.join(root_dir, "logs/final_convs.log"), "a") as f:
             with open(os.path.join(root_dir, "logs/final_convs.log"), "a") as f:
                 f.write(f"Round {i}\n")
                 f.write(f"{speaker.name}:\n")
@@ -391,7 +435,30 @@ class GCManager(GroupChatManager):
                 #         sender=self,
                 #     )
                 #     score_pattern = re.compile(r"EVALUATION SCORE=(\d+\.\d+)")
+                # elif speaker.name == "code_reviewer" and exe_feedback:
+                #     # speaker.
+                #     reply = speaker.generate_reply(
+                #         [
+                #             *messages[-3:],
+                #             {
+                #                 "role": "assistant",
+                #                 "content": f"{exe_feedback}\nGenerate an evaluation score for the code that has been generated given the above status, give the score first and then whatever suggestion you deem fit and necessary. REPLY EXACTLY EVALUATION SCORE=<score> followed by your suggestion on a new line where <score> is a float between 0 and 1.",
+                #             },
+                #         ],
+                #         sender=self,
+                #     )
+                #     score_pattern = re.compile(r"EVALUATION SCORE=(\d+\.\d+)")
 
+                #     # print(f"Reply: {reply}")
+                #     # print(f"typeof reply: {type(reply)}")
+                #     try:
+                #         evaluation_score = re.findall(
+                #             score_pattern,
+                #             reply if isinstance(reply, str) else reply["content"],
+                #         )
+                #     except Exception as e:
+                #         evaluation_score = -1
+                #     logger.info(f"Evaluation score: {evaluation_score}")
                 #     # print(f"Reply: {reply}")
                 #     # print(f"typeof reply: {type(reply)}")
                 #     try:
@@ -407,6 +474,9 @@ class GCManager(GroupChatManager):
                 ###########################  A2A  ###################################
                 ###########################  A2A  ###################################
                 ###########################  A2A  ###################################
+                # else:
+                # Let whoever the speaker is reply
+                reply = speaker.generate_reply(sender=self)
                 # else:
                 # Let whoever the speaker is reply
                 reply = speaker.generate_reply(sender=self)
@@ -480,6 +550,7 @@ def marl(collection_name: str) -> List[ConversableAgent]:
         collection_name=collection_name,
         llm_config=retrieve_conf,
         retrieve_config={
+            **retrieve_conf,
             **retrieve_conf,
             "task": "qa",
             "client": "psycopg2",
