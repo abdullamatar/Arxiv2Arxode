@@ -2,6 +2,7 @@
 # TODO: Dockerize pgvector, docker image for code execve
 # import pypdf
 import os
+from functools import cached_property
 from typing import List, Optional
 
 from dotenv import load_dotenv
@@ -32,6 +33,7 @@ CONNECTION_STRING = PGVector.connection_string_from_db_params(
 print(CONNECTION_STRING)
 
 
+# @cached_property
 def load_and_chunk_papers(
     pdf_path: Optional[str] = "./",
     file_name_glob: Optional[str] = "*.pdf",
@@ -48,11 +50,9 @@ def load_and_chunk_papers(
     return loader.load_and_split(text_splitter)
 
 
-def get_embedding_func(model: str = "text-embedding-ada-002") -> Embeddings:
+def get_embedding_func(model: str = "text-embedding-3-large") -> Embeddings:
     """
     Select how to create embeddings for the pdf, i.e. Word2Vec, GloVe, sentencepiece, openAI, llama, mistral...
-
-    EVERYTHING IS UNDER CONSTRUCTION :D
     """
     return OpenAIEmbeddings(openai_api_key=openaikey, model=model)
 
@@ -124,5 +124,6 @@ if __name__ == "__main__":
     # docs = load_and_chunk_papers("./temp")
     # vdb = create_embedding_collection(docs, get_embedding_func(docs))
     # print(load_and_chunk_code("./temprepo"))
-    print(CONNECTION_STRING)
+    exit(1)
+    # print(CONNECTION_STRING)
     # print(type(load_and_chunk_code("./temprepo")))

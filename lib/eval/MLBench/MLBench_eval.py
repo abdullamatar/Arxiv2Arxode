@@ -1,7 +1,6 @@
 # stdlib
 # import sys
 import json
-import os
 
 # pytorch
 import torch
@@ -9,6 +8,10 @@ import torch.nn.functional as F
 from datasets import load_from_disk  # , Dataset
 # hf
 from transformers import AutoModel, AutoTokenizer  # , AutoModelForCausalLM
+
+# import os
+
+
 
 # from huggingface_hub import login
 
@@ -28,9 +31,15 @@ def load_tasks(file_path: str):
     for task in x:
         task_description = task["task_description"]
         codes = [feedback["code"] for feedback in task.get("exe_feedback", [])]
-
+        exit_codes = task["exit_codes"]
+        task_idx = task["task_idx"]
         simplified_structure.append(
-            {"task_description": task_description, "code_generations": codes}
+            {
+                "task_description": task_description,
+                "code_generations": codes,
+                "exit_codes": exit_codes,
+                "task_idx": task_idx,
+            }
         )
 
     return simplified_structure
@@ -66,42 +75,62 @@ def compute_cosine_similarity(embedding1, embedding2):
     return F.cosine_similarity(embedding1, embedding2).mean().item()
 
 
-# Assuming `runs` contains the generated code and `tested_runs['output']` contains the ground truth
 def evaluate_generated_code(runs, tested_runs_output, t, m):
     similarities = []
 
-    for i, run in enumerate(runs):
+    test_set_taskids = {entry["id"]: entry["output"] for entry in tested_runs_output}
+    succesful_execution_count = 0
+    for run in runs:
         generated_codes = run["code_generations"]
-        ground_truth = tested_runs_output[i]
+
+        ground_truth = test_set_taskids.get(int(run["task_idx"]))
+        if not ground_truth:
+            continue
+        assert ground_truth, f"Task {run['task_idx']} not found in test set"
+
+        if any(exit_code == 0 for exit_code in run["exit_codes"]):
+            succesful_execution_count += 1
 
         for generated_code in generated_codes:
-            generated_embedding = compute_sentence_embeddings([generated_code], t, m)[0]
-            ground_truth_embedding = compute_sentence_embeddings([ground_truth], t, m)[
-                0
-            ]
+            generated_embedding = compute_sentence_embeddings(generated_code, t, m)[0]
+            ground_truth_embedding = compute_sentence_embeddings(ground_truth, t, m)[0]
 
             similarity = compute_cosine_similarity(
                 generated_embedding, ground_truth_embedding
             )
             similarities.append(similarity)
 
+    pass_rate = succesful_execution_count / len(runs)
+
     average_similarity = sum(similarities) / len(similarities)
-    return average_similarity, similarities
+    evaluation = 0.5 * average_similarity + 0.5 * pass_rate
+
+    return {
+        "evaluation": evaluation,
+        "average_similarity": average_similarity,
+        "pass_rate": pass_rate,
+    }
 
 
-def g():
-    print(os.getcwd())
+def g(dset, subset):
+    # print(os.getcwd())
     tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
     model = AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
 
     # print(root_dir)
+    # mlbench = load_from_disk("./lib/eval/MLBench/datasets")
     mlbench = load_from_disk("./datasets")
-    runs = load_tasks("../../../agent_runs.jsonl")
+    # root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # print(f"Root dir: {root_dir}")
 
-    tested_runs = mlbench["quarter"]
+    runs = load_tasks(dset)
 
-    average_similarity, similarities = evaluate_generated_code(
-        runs, tested_runs["output"], tokenizer, model
-    )
-    print(f"Average similarity: {average_similarity}, Similarities: {similarities}")
-    return average_similarity, similarities
+    tested_runs = mlbench[subset]
+
+    # print(f"Average similarity: {average_similarity}, Similarities: {similarities}")
+    return evaluate_generated_code(runs, tested_runs, tokenizer, model)
+    # return value, similarities
+
+
+if __name__ == "__main__":
+    g("😎", "😶‍🌫️")

@@ -1,5 +1,4 @@
-# Arxiv2Arxode: Undergraduate Research Project
-*The University of Birmingham Dubai*
+# Arxiv2Arxode
 
 > This repository hosts the development of my undergraduate research project. The aim is to automate code generation based off of information internalized from artificial intelligence and machine learning research papers. In hopes of exploring the capabilities of current state-of-the-art models and how to pose them as task solving agents.
 
