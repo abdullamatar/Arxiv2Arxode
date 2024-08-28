@@ -1,23 +1,10 @@
 # STD LIB
-<<<<<<< HEAD
 import json
 import logging
 import multiprocessing as mp
 import os
 import signal
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
-=======
-# import asyncio
-# import subprocess
-# import threading
-# import queue
-import json
-import logging
-import os
-import signal
-
->>>>>>> 927fc54192b430379b74cd3c69be12c069fbb516
 from dataclasses import dataclass
 from typing import List
 
@@ -32,60 +19,24 @@ from datasets import load_from_disk
 from agents.agent import EmbeddingRetrieverAgent, GCManager, marl
 from agents.agent_conf import gcconf
 
-<<<<<<< HEAD
-=======
-
-# TruLens
-# from trulens_eval.tru_custom_app import instrument
-
-
-# from autogen.agentchat.contrib.capabilities import context_handling
->>>>>>> 927fc54192b430379b74cd3c69be12c069fbb516
-
 # TruLens
 # from trulens_eval.tru_custom_app import instrument
 
 logger = logging.getLogger("coordinator")
 
-<<<<<<< HEAD
 logging.getLogger("requests").propagate = False
 logging.getLogger("urllib3").propagate = False
 
 root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-=======
-root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
->>>>>>> 927fc54192b430379b74cd3c69be12c069fbb516
 logging.basicConfig(
     level=logging.INFO,
     # Get the root directory of the project
     filename=os.path.join(root_dir, "logs/coord_gc.log"),
-<<<<<<< HEAD
     format="%(asctime)s <>|<> %(levelname)s <>|<> from mod %(module)s:\n%(message)s",
 )
 
-=======
-    format="%(asctime)s  👁‍🗨  %(levelname)s  👁‍🗨 from mod %(module)s:\n%(message)s",
-)
-
-logging.getLogger("requests").setLevel(logging.WARNING)
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-
-"""
-?ATTENTION:
-Registering reply functions, and potentially further sublclassing the CodingAgent are the way to move forward I believe.
-"""
-
-
-@dataclass
-class Chat:
-    sender: str
-    receiver: str
-    message: str
-
->>>>>>> 927fc54192b430379b74cd3c69be12c069fbb516
 
 class Coordinator:
     """Coordinate sequential multi-agent conversations"""
@@ -106,20 +57,16 @@ class Coordinator:
         for m in msgs:
             agent_name = m.get("name", "Unknown")
             print(m)
-<<<<<<< HEAD
             content = (
                 m
                 if isinstance(m, str)
                 else m.get("content", "ERROR RETRIEVING MESSAGE CONTENT")
             )
-=======
-            content = m["content"] or "fail"
->>>>>>> 927fc54192b430379b74cd3c69be12c069fbb516
             logger.info(f"SENDER {agent_name}:\nCONTENT: {content}")
 
     # !
     # @instrument
-    def code_gen_group_chat(self, prompt: str, task_idx, epochs: int = 5):
+    def code_gen_group_chat(self, prompt: str, task_idx, epochs: int = 7):
         """
         Run a group chat with the agents and generate code
         """
@@ -130,11 +77,7 @@ class Coordinator:
         gc = GroupChat(
             agents=[retriever, code_review, coding_llm],
             messages=[],
-<<<<<<< HEAD
             max_round=epochs,
-=======
-            max_round=5,
->>>>>>> 927fc54192b430379b74cd3c69be12c069fbb516
             speaker_selection_method="auto",
             # allow_repeat_speaker=[coding_llm],
         )
@@ -219,14 +162,9 @@ class Coordinator:
         combined_stats["exit_codes"] = [
             feedback["exit_code"] for feedback in gcman.execution_feedback_list
         ]
-        combined_stats["task_idx"] = task_idx + 1
+        combined_stats["task_idx"] = task_idx
 
-<<<<<<< HEAD
         with open("mlquart4-gc.jsonl", "a") as f:
-=======
-        combined_stats["exit_codes"] = exit_codes
-        with open("agent_runs.jsonl", "a") as f:
->>>>>>> 927fc54192b430379b74cd3c69be12c069fbb516
             f.write(json.dumps(combined_stats) + "\n")
 
         return combined_stats
@@ -367,9 +305,9 @@ def execute_task(mlbench, iteration):
             team_name="test",
             agents=marl(collection_name="MLBench_papers"),
         ).code_gen_group_chat(
-            f"Here is some information from a readme related to the task at hand, this information is more than enough to successful implement the following and task and is of utmost importance, use it as guidance and a starting point to build from:\n {mlbench['quarter'][iteration]['oracle']}\n"
-            f"Here is the task description:\n{mlbench['quarter'][iteration]['instruction']}\n"
-            f"The type of output expected for this task is {mlbench['quarter'][iteration]['type']}",
+            f"Here is some information from a readme related to the task at hand, this information is more than enough to successfully implement the following task and is of utmost importance, use it as guidance and a starting point, you are operating within a jupyter IPykernel notebook environment:\n {mlbench['quarter'][iteration]['oracle']}\nTo prepare the execution environment please run this command in the notebook: {mlbench['quarter'][iteration]['prefix_code']}\n"
+            f"Here is the task description:\n{mlbench['quarter'][iteration]['instruction']}\nAvoid executing any things that require standard inputs to be given, such as an API key or token.\n"
+            f"The type of output expected for this task is {mlbench['quarter'][iteration]['type']}.",
             epochs=7,
             task_idx=mlbench["quarter"][iteration]["id"],
         )
@@ -381,35 +319,8 @@ def execute_task(mlbench, iteration):
         logger.info(f"Skipping prompt for iteration {iteration + 1}")
 
 
-class TimeoutException(Exception):
-    pass
-
-
-def handler(signum, frame):
-    raise TimeoutException("Prompt skipped due to timeout")
-
-
-signal.signal(signal.SIGALRM, handler)
-
-
-def perform_iteration(mlbench, iteration):
-    # function to skip over blocking stdin prompts for whatever reason (i,e. api being required via some library).
-    try:
-        signal.alarm(80)
-
-        Coordinator(
-            team_name="test",
-            agents=marl(collection_name="MLBench_papers"),
-        ).code_gen_group_chat(
-            f"Here is some information from a readme related to the task at hand:\n {mlbench['quarter'][iteration]['oracle']}\n"
-            f"Here is the task description:\n{mlbench['quarter'][iteration]['instruction']}\n"
-            f"The type of output expected for this task is {mlbench['quarter'][iteration]['type']}"
-        )
-
-        signal.alarm(0)
-        logger.info(f"Iteration {iteration + 1} completed successfully.")
-    except TimeoutException:
-        logger.info(f"Skipping prompt for iteration {iteration + 1}")
+# class TimeoutException(Exception):
+#     pass
 
 
 if __name__ == "__main__":
@@ -424,10 +335,8 @@ if __name__ == "__main__":
     # )
 
     # process_in_batches(mlbench)
-    for i in range(len(mlbench["quarter"])):
+    for i in range(12, len(mlbench["quarter"])):
         execute_task(mlbench, i)
-
-    mlbench = load_from_disk(root_dir + "/lib/eval/MLBench/datasets/")
 
     # with open("./temp.jsonl", "r") as f:
     #     tasks = [json.loads(line) for line in f]
@@ -435,7 +344,6 @@ if __name__ == "__main__":
     # q = manager.Queue()
     # lock = manager.Lock()
 
-<<<<<<< HEAD
     # listener_proc = mp.Process(target=listener, args=(q, "agent_runs_multiproc.jsonl"))
     # listener_proc.start()
     # file_pool = mp.Pool(1)
@@ -496,99 +404,3 @@ if __name__ == "__main__":
 
 #         for future in concurrent.futures.as_completed(futures):
 #             future.result()
-=======
-    # for i in range(len(mlbench["quarter"][20])):
-    perform_iteration(mlbench, 20)
-    # Function to read output from a subprocess without blocking
-    # def enqueue_output(out, q):
-    #     for line in iter(out.readline, b""):
-    #         q.put(line.decode("utf-8"))
-    #     out.close()
-
-    # def run_task(task_instruction):
-    #     script_content = f"""
-    # import subprocess
-
-    # def main():
-    # Coordinator(
-    #     team_name="test",
-    #     agents=marl(collection_name="MLBench_papers"),
-    # ).code_gen_group_chat("retrieve some content about AC-Gans")
-
-    # if __name__ == "__main__":
-    #     main()
-    # """
-    #     # Write the script content to a temporary file
-    #     script_file = "temp_task_script.py"
-    #     with open(script_file, "w") as f:
-    #         f.write(script_content)
-
-    #     # Start the subprocess
-    #     process = subprocess.Popen(
-    #         ["python", script_file],
-    #         stdout=subprocess.PIPE,
-    #         stderr=subprocess.PIPE,
-    #         stdin=subprocess.PIPE,
-    #         bufsize=1,
-    #         universal_newlines=True,
-    #     )
-
-    #     # Create a queue to hold the subprocess output
-    #     q = queue.Queue()
-    #     t = threading.Thread(target=enqueue_output, args=(process.stdout, q))
-    #     t.daemon = True  # Thread dies with the program
-    #     t.start()
-
-    #     # Monitor the subprocess output
-    #     while True:
-    #         try:
-    #             line = q.get_nowait()  # Non-blocking read
-    #         except queue.Empty:
-    #             if process.poll() is not None:
-    #                 break  # Process finished
-    #             time.sleep(0.1)
-    #         else:
-    #             print(line, end="")  # Print the output
-
-    #             # Check if the line contains a text prompt
-    #             if "Enter" in line or "Prompt" in line:
-    #                 print("Detected prompt, terminating subprocess...")
-    #                 process.terminate()
-    #                 return False  # Indicate the round should be skipped
-
-    #     # Wait for the process to finish
-    #     process.wait()
-    #     return True  # Indicate the round completed successfully
-
-    # # mlbench = load_from_disk(root_dir + "/lib/eval/MLBench/datasets/")
-
-    # results = []
-
-    # for i in range(len(mlbench["quarter"])):
-    #     task_instruction = (
-    #         f"Here is some information from a readme related to the task at hand:\n {mlbench['quarter'][i]['oracle']}\n"
-    #         f"Here is the task description:\n{mlbench['quarter'][i]['instruction']}\n"
-    #         f"The type of output expected for this task is {mlbench['quarter'][i]['type']}"
-    #     )
-    #     success = run_task(task_instruction)
-    #     if success:
-    #         print(f"Task {i + 1} completed successfully.")
-    #         results.append(True)
-    #     else:
-    #         print(f"Task {i + 1} skipped due to prompt.")
-    #         results.append(False)
-    #     logger.info(f"Results: {results}")
-
-##################old########################
-# for task in tasks:
-#     Coordinator(
-#         team_name="test",
-#         agents=marl(collection_name="cs_demo"),
-#     ).code_gen_group_chat(task)
-# Coordinator(
-#     team_name="test",
-#     agents=marl(collection_name="eval4_db_guidingpretraining"),
-# ).code_gen_group_chat(
-#     "Show me how an RL agents exploration can be guiding with LLM priors according to the paper. Create a minimal example in a self-contained python file that must be executable and produce an output, do not make any assumptions or fill any functions with the pass keyword or ellipses."
-# )
->>>>>>> 927fc54192b430379b74cd3c69be12c069fbb516

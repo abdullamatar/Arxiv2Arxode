@@ -1,10 +1,12 @@
 # STD LIB
 import logging
 import os
+# import subprocess
 import re
-import sys
+import secrets
+from pathlib import Path
+# import sys
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
-from uuid import uuid4
 
 # autogen
 from autogen import (Agent, AssistantAgent, ConversableAgent, GroupChatManager,
@@ -14,11 +16,21 @@ from autogen.agentchat.contrib.retrieve_user_proxy_agent import \
 from autogen.agentchat.contrib.vectordb.base import QueryResults
 from autogen.agentchat.groupchat import GroupChat
 from autogen.code_utils import extract_code
+from autogen.coding import CodeBlock
+from autogen.coding.jupyter import DockerJupyterServer, JupyterCodeExecutor
+from autogen.coding.jupyter.base import (JupyterConnectable,
+                                         JupyterConnectionInfo)
 
 # A2A
 # import agents.agent_conf as agent_conf
 from agents.agent_conf import base_cfg, retrieve_conf
 from lib.embeddings import get_db_connection, get_embedding_func
+
+# from uuid import uuid4
+
+
+# from trulens_eval import Tru
+
 
 # from trulens_eval import Tru
 
@@ -35,6 +47,9 @@ logging.getLogger("requests").propagate = False
 logging.getLogger("urllib3").propagate = False
 
 root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+os.makedirs(os.path.join(root_dir, "logs"), exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
     filename=os.path.join(root_dir, "logs/agents_mod.log"),
@@ -76,10 +91,8 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         self.embedding_function = get_embedding_func()
         self.dbconn = get_db_connection(
             cname=collection_name,
-            cname=collection_name,
             efunc=self.embedding_function,
         )
-        self.n_results = 5
         self.n_results = 5
         # self.customized_prompt
         super().__init__(
@@ -94,8 +107,6 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         self,
         # query_texts: List[str],
         search_string: str,
-        # query_texts: List[str],
-        search_string: str,
         n_results: int = 5,
         **kwargs,
     ) -> Dict[str, List[List[str]]]:
@@ -104,10 +115,7 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         # print(n_results)
         n_results = self.n_results
         # print(n_results)
-        n_results = self.n_results
         relevant_docs = self.dbconn.similarity_search_with_relevance_scores(
-            query=search_string,
-            k=int(n_results),
             query=search_string,
             k=int(n_results),
         )
@@ -140,7 +148,6 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
 
     def retrieve_docs(
         self, search_string: str, problem: str, n_results: int = 5, **kwargs
-        self, search_string: str, problem: str, n_results: int = 5, **kwargs
     ):
         """
         Args:
@@ -154,27 +161,13 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
                 n_results=n_results,
                 search_string=search_string,
                 # embedding_function=get_embedding_func(),
-                # embedding_model="text-embedding-ada-002",
-                **kwargs,
-            )
-        results = self.transform_results_to_query_results(
-            self.query_vector_db(
-                # query_texts=[problem],
-                n_results=n_results,
-                search_string=search_string,
-                # embedding_function=get_embedding_func(),
-                # embedding_model="text-embedding-ada-002",
                 **kwargs,
             )
         )
-
-        self._search_string = search_string
+        self._results = results  # Why?: It is a class property; state repr i guess?
         self._search_string = search_string
         # TODO: The northern winds blow strong...
-        self._results = results  # Why?: It is a class property; state repr i guess?
         # return results
-
-    # This is taken directly from the RetrieveUserProxyAgent class from autogen and is used as a hacky workaround to abide by the token limit of the GPT-3 family of models, it is commented out when using gpt4+.
 
     # This is taken directly from the RetrieveUserProxyAgent class from autogen and is used as a hacky workaround to abide by the token limit of the GPT-3 family of models, it is commented out when using gpt4+.
 
@@ -209,11 +202,75 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
     #     return doc_contents
 
 
+class CodeExecutorManager(JupyterCodeExecutor):
+    def __init__(
+        self,
+        jupyter_server: JupyterConnectable | JupyterConnectionInfo,
+        kernel_name: str = "python3",
+        timeout: int = 60,
+        output_dir: Path | str = ...,
+    ):
+        # self.server = DockerJupyterServer()
+        super().__init__(jupyter_server, kernel_name, timeout, output_dir)
+
+
+class CustomDockerJupyterServer(DockerJupyterServer):
+    def __init__(
+        self,
+        *,
+        custom_image_name: str | None = None,
+        container_name: str | None = None,
+        auto_remove: bool = True,
+        stop_container: bool = True,
+        docker_env: Dict[str, str] = {},
+        token: str | DockerJupyterServer.GenerateToken,
+    ):
+        self.DEFAULT_DOCKERFILE = """FROM quay.io/jupyter/docker-stacks-foundation
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+USER ${NB_UID}
+RUN mamba install --yes jupyter_kernel_gateway ipykernel && \
+    mamba clean --all -f -y && \
+    fix-permissions "${CONDA_DIR}" && \
+    fix-permissions "/home/${NB_USER}"
+
+ENV TOKEN="UNSET"
+CMD python -m jupyter kernelgateway --KernelGatewayApp.ip=0.0.0.0 \
+    --KernelGatewayApp.port=8888 \
+    --KernelGatewayApp.auth_token="${TOKEN}" \
+    --JupyterApp.answer_yes=true \
+    --JupyterWebsocketPersonality.list_kernels=true
+
+EXPOSE 8888
+
+WORKDIR "${HOME}"
+"""
+
+        super().__init__(
+            custom_image_name=custom_image_name,
+            container_name=container_name,
+            auto_remove=auto_remove,
+            stop_container=stop_container,
+            docker_env=docker_env,
+            token=token,
+        )
+
+    # def __init__(self, output_dir: Path):
+    #     self.executor = JupyterCodeExecutor(self.server, output_dir=output_dir)
+
+    # def get_executor(self):
+    #     return self.executor
+
+    # def shutdown(self):
+    #     self.server.__exit__(None, None, None)
+
+
 class CodingAssistant(AssistantAgent):
-    # https://github.com/microsoft/autogen/blob/main/notebook/agentchat_auto_feedback_from_code_execution.ipynb
     def __init__(
         self,
         name: str,
+        executor,
         human_input_mode: str | Literal["NEVER"],
         system_message: str | None = None,
         llm_config: Optional[Union[Dict, Literal[False]]] = None,
@@ -233,60 +290,62 @@ class CodingAssistant(AssistantAgent):
             # description,
             **kwargs,
         )
-        # self.register_reply(trigger=[Agent, None], reply_func=self.i)
+        self.executor = executor
+        # self.installed_packages = set()
 
-    # see comment in GCManager subclass
-    # @instrument
-    # def generate_reply(
-    #     self,
-    #     messages: List[Dict[str, Any]] | None = None,
-    #     sender: Agent | None = None,
-    #     **kwargs: Any,
-    # ) -> str | Dict | None:
-    #     return super().generate_reply(messages, sender, **kwargs)
-    # @instrument
-    # def generate_reply(
-    #     self,
-    #     messages: List[Dict[str, Any]] | None = None,
-    #     sender: Agent | None = None,
-    #     **kwargs: Any,
-    # ) -> str | Dict | None:
-    #     return super().generate_reply(messages, sender, **kwargs)
-
-    def detect_and_execute_code(
-        self,
-        message,
-        **kwargs,
-    ) -> List[Dict] | None:
-        # kwargs.pop("last_n_messages", None)
+    def detect_and_execute_code(self, message, **kwargs) -> List[Dict] | None:
         execution_feedback = []
-        # for message in messages:
-        # print(f"Typeof message: {type(message)}")
         code_blocks = extract_code(message["content"])
-        # NOTE: Gonna make it always true for science
-        if code_blocks or 1:
-            for _, code in code_blocks:
-                # Third unpacked element is str for docker image
-                # ? Can modify run_code as needed
-                exit_code, logs, _ = self.run_code(
-                    code=code,  # **self._code_execution_config #this arg causes an error but is present in their src code
-                )
 
-                execution_feedback.append(
-                    {"code": code, "exit_code": exit_code, "logs": logs}
-                )
-                # write_file(os.path.join(root_dir, f"sandbox/code_{uuid4()}.py"), code)
-        # logger.info(f"Execution feedback: {execution_feedback}")
+        for _, code in code_blocks:
+            # Execute the code using the provided executor
+            result = self.executor.execute_code_blocks(
+                code_blocks=[CodeBlock(language="python", code=code)]
+            )
+            execution_feedback.append(
+                {"code": code, "exit_code": result.exit_code, "logs": result.output}
+            )
+
         return execution_feedback
 
-    # ! run_code called in execute_code_blocks which is called in generate_code_execution_reply
-    # code is extracted in generate_*_reply
-    # def run_code(self, code, **kwargs):
-    #     logger.info(f"RUNNING CODE:\n{code}")
-    #     filename = f"code_gen_{random.randint(0, 1000)}"
-    #     with open(f"sandbox/{filename}.py", "a") as f:
-    #         f.write(code)
-    #     return super().run_code(code, **kwargs)
+        # with DockerJupyterServer() as docker_server:
+        #     executor = JupyterCodeExecutor(docker_server)
+
+        #     for _, code in code_blocks:
+        #         # self.install_missing_dependencies(executor, code)
+
+        #         result = executor.execute_code_blocks(
+        #             code_blocks=[CodeBlock(language="python", code=code)]
+        #         )
+        #         execution_feedback.append(
+        #             {"code": code, "exit_code": result.exit_code, "logs": result.output}
+        #         )
+
+        # return execution_feedback
+
+    # def install_missing_dependencies(self, executor: JupyterCodeExecutor, code: str):
+    #     required_packages = self.detect_required_packages(code)
+
+    #     packages_to_install = [
+    #         pkg for pkg in required_packages if pkg not in self.installed_packages
+    #     ]
+
+    #     if packages_to_install:
+    #         executor.execute_code_blocks(
+    #             code_blocks=[
+    #                 CodeBlock(
+    #                     language="bash",
+    #                     code=f"pip install {' '.join(packages_to_install)}",
+    #                 )
+    #             ]
+    #         )
+    #         self.installed_packages.update(packages_to_install)
+
+    # def detect_required_packages(self, code: str) -> List[str]:
+    #     matches = re.findall(r"import (\w+)", code) + re.findall(
+    #         r"from (\w+) import", code
+    #     )
+    #     return matches
 
 
 class GCManager(GroupChatManager):
@@ -295,7 +354,7 @@ class GCManager(GroupChatManager):
         groupchat: GroupChat,
         tid,
         name: str | None = "chat_manager",
-        max_consecutive_auto_reply: int | None = sys.maxsize,
+        max_consecutive_auto_reply: int | None = 9999,
         human_input_mode: str | None = "NEVER",
         llm_config: Optional[Union[Dict, Literal[False]]] = None,
         system_message: str | List | None = "Group chat manager.",
@@ -345,16 +404,9 @@ class GCManager(GroupChatManager):
             content = message.get("content", "")
         elif isinstance(message, str):
             content = message
-
-        if isinstance(message, dict):
-            content = message.get("content", "")
-        elif isinstance(message, str):
-            content = message
-
         return bool(
             re.compile(
                 r"```[ \t]*(\w+)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```", re.DOTALL
-            ).search(content)
             ).search(content)
         )
 
@@ -388,7 +440,6 @@ class GCManager(GroupChatManager):
             # Isolate the coding LLM
             # change to check by name
 
-            with open(os.path.join(root_dir, "logs/final_convs.log"), "a") as f:
             with open(os.path.join(root_dir, "logs/final_convs.log"), "a") as f:
                 f.write(f"Round {i}\n")
                 f.write(f"{speaker.name}:\n")
@@ -477,9 +528,6 @@ class GCManager(GroupChatManager):
                 # else:
                 # Let whoever the speaker is reply
                 reply = speaker.generate_reply(sender=self)
-                # else:
-                # Let whoever the speaker is reply
-                reply = speaker.generate_reply(sender=self)
 
             except KeyboardInterrupt:
                 if groupchat.admin_name in groupchat.agent_names:
@@ -532,6 +580,13 @@ Sometimes, there might be a need to use RetrieveUserProxyAgent in group chat wit
 
 
 def marl(collection_name: str) -> List[ConversableAgent]:
+    outdir = Path("sandbox")
+    os.makedirs(outdir, exist_ok=True)
+    executor = CodeExecutorManager(
+        jupyter_server=CustomDockerJupyterServer(token=secrets.token_hex(32)),
+        output_dir=outdir,
+    )
+
     agent0 = UserProxyAgent(
         name="main_userproxy",
         human_input_mode="NEVER",
@@ -551,7 +606,6 @@ def marl(collection_name: str) -> List[ConversableAgent]:
         llm_config=retrieve_conf,
         retrieve_config={
             **retrieve_conf,
-            **retrieve_conf,
             "task": "qa",
             "client": "psycopg2",
         },
@@ -559,31 +613,18 @@ def marl(collection_name: str) -> List[ConversableAgent]:
 
     agent2 = AssistantAgent(
         name="code_reviewer",
-        description="An agent used to review code, given the current information retrieved and other information related to the main problem at hand. Review the code generated by the coding_agent to make sure it is executable and logically follows the ideas from the research and source code.",
-        system_message="Review the generated code, add to it and modify it as needed. Also retrieve additional information from the retrieval agent, plan out what you want to do and why in a step by step manner.",
+        description="An agent used to review code, given the current information retrieved and other information related to the main problem at hand. Review the code generated by the coding_agent to make sure it is executable and logically follows the ideas from the research and source code. Ensure that any code generated is able to run within a jupyter notebook environment, for example when installing packages ensure that you are running !pip and not a bash command.",
+        system_message="Review the generated code to be run within an IPykernel environment, add to it and modify it as needed to achieve your task and be helpful. Any bash commands such as installing packages with pip need to be setup to run in a python notebook environment. Retrieve additional information from the retrieval agent, plan out what you want to do and why in a step by step manner.",
         llm_config=base_cfg,
         is_termination_msg=TERMINATION_MSG,
-        # code_execution_config={
-        #     # "work_dir": "./sandbox",
-        #     "use_docker": "python:3-slim",
-        #     # "use_docker": "pytorch/pytorch:2.4.0-cuda11.8-cudnn9-runtime",
-        # },
     )
 
     agent3 = CodingAssistant(
         name="coding_agent",
-        system_message="Your role is to generate and execute code based off of the information provided by the retrieval agent and the code reviewer agent. Make sure you generate code in a step by step manner, use the feedback provided to improve your code. Make NO ASSUMPTIONS about anything, do not assume a file or package exist, if you must make assumptions state what they are. ALWAYS generate your code in a single code block between backticks and DO NOT BREAK IT UP, any comments you want to make can be ADDED OUTSIDE the code block, which must contain only the EXECUTABLE, CONCISE code related to the task given the instructions.",
+        system_message="Ensure any code you generate is written to run within a IPykernel environment, meaning any code designed to run in a shell environment must be prefixed with '!', such as installing pip packages. Your role is to generate and execute code within a jupyter notebook environment based off of the information provided by the retrieval agent and the code reviewer agent. Make sure you generate code in a step by step manner, use the feedback provided to improve your code. Make NO ASSUMPTIONS about anything, do not assume a file or package exist. ALWAYS generate your code in a code block between backticks and DO NOT BREAK IT UP, any comments you want to make can be ADDED OUTSIDE the code block, which must contain only the EXECUTABLE, CONCISE code to be run in the IPykernel notebook. YOU ARE EXECUTING CODE WITHIN A IPYKERNEL ENVIRONMENT PREFIX SHELL COMMANDS WITH '!'.",
         description="A coding agent that is tasked with iteratively generating code based off of the information provided related to the task as well as information from the retrieval agent and the code reviewer agent.",
-        code_execution_config={
-            # "work_dir": "./sandbox",
-            "use_docker": "python:3-slim",
-            # "use_docker": "pytorch/pytorch:2.4.0-cuda11.8-cudnn9-runtime",
-            # "last_n_messages": 5,
-        },
-        # code_execution_config=False,
-        # function_map={
-        #     "execute_and_save": execute_and_save,
-        # },
+        executor=executor,
+        code_execution_config={"executor": executor},
         human_input_mode="NEVER",
         is_termination_msg=TERMINATION_MSG,
         llm_config=base_cfg,

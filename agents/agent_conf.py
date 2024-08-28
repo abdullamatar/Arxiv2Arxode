@@ -35,12 +35,8 @@ gcconf = {
     #         "api_key": os.environ.get("OPENAI_APIKEY2"),
     #     }
     # ],
-<<<<<<< HEAD
     "cache_seed": 44,  # quarter
     # "cache_seed": 48,  # full
-=======
-    "cache_seed": 45,
->>>>>>> 927fc54192b430379b74cd3c69be12c069fbb516
 }
 
 retrieve_conf = {
@@ -69,8 +65,8 @@ retrieve_conf = {
     "customized_prompt": """
 You are an agent tasked with retrieving information from research papers to aid in the task of code generation. Given the following problem do your best to retrieve the most relevant piece of information required for building the program given the current state of the conversation. Here is the problem:
 {input_question}
-    
-The context is: 
+
+The context is:
 {input_context}
 """,
     # "timeout": 180,
@@ -78,46 +74,46 @@ The context is:
     # "seed": 42,
 }
 
-exec_py_conf = {
-    **base_cfg,
-    "functions": [
-        {
-            "name": "exec_py",
-            "description": "Execute generated python code",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "code": {
-                        "type": "string",
-                        "description": "Python str to be executed.",
-                    }
-                },
-                "required": ["code"],
-            },
-        }
-    ],
-}
+# exec_py_conf = {
+#     **base_cfg,
+#     "functions": [
+#         {
+#             "name": "exec_py",
+#             "description": "Execute generated python code",
+#             "parameters": {
+#                 "type": "object",
+#                 "properties": {
+#                     "code": {
+#                         "type": "string",
+#                         "description": "Python str to be executed.",
+#                     }
+#                 },
+#                 "required": ["code"],
+#             },
+#         }
+#     ],
+# }
 
-write_file_config = {
-    **base_cfg,
-    "functions": [
-        {
-            "name": "write_file",
-            "description": "Save accepted python code to file",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "fname": {
-                        "type": "string",
-                        "description": "The name of the file to write",
-                    },
-                    "content": {
-                        "type": "string",
-                        "description": "The content of the file to write",
-                    },
-                },
-                "required": ["fname", "content"],
-            },
-        }
-    ],
-}
+# write_file_config = {
+#     **base_cfg,
+#     "functions": [
+#         {
+#             "name": "write_file",
+#             "description": "Save accepted python code to file",
+#             "parameters": {
+#                 "type": "object",
+#                 "properties": {
+#                     "fname": {
+#                         "type": "string",
+#                         "description": "The name of the file to write",
+#                     },
+#                     "content": {
+#                         "type": "string",
+#                         "description": "The content of the file to write",
+#                     },
+#                 },
+#                 "required": ["fname", "content"],
+#             },
+#         }
+#     ],
+# }
