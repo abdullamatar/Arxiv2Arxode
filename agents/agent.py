@@ -1,48 +1,36 @@
 # STD LIB
 import logging
 import os
-# import subprocess
 import re
 import secrets
 from pathlib import Path
-# import sys
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
 # autogen
-from autogen import (Agent, AssistantAgent, ConversableAgent, GroupChatManager,
-                     UserProxyAgent)
-from autogen.agentchat.contrib.retrieve_user_proxy_agent import \
-    RetrieveUserProxyAgent
+from autogen import (
+    Agent,
+    AssistantAgent,
+    ConversableAgent,
+    GroupChatManager,
+    UserProxyAgent,
+)
+from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
 from autogen.agentchat.contrib.vectordb.base import QueryResults
 from autogen.agentchat.groupchat import GroupChat
 from autogen.code_utils import extract_code
 from autogen.coding import CodeBlock
 from autogen.coding.jupyter import DockerJupyterServer, JupyterCodeExecutor
-from autogen.coding.jupyter.base import (JupyterConnectable,
-                                         JupyterConnectionInfo)
+from autogen.coding.jupyter.base import JupyterConnectable, JupyterConnectionInfo
+from httpx import request
 
 # A2A
 # import agents.agent_conf as agent_conf
 from agents.agent_conf import base_cfg, retrieve_conf
 from lib.embeddings import get_db_connection, get_embedding_func
 
-# from uuid import uuid4
 
-
-# from trulens_eval import Tru
-
-
-# from trulens_eval import Tru
-
-
-# from utils.misc import write_file
-
-# TrueLens
-# from trulens_eval.tru_custom_app import instrument
-
-
+# TODO: use built in logging https://microsoft.github.io/autogen/docs/notebooks/agentchat_logging
 logger = logging.getLogger("agents")
-
 logging.getLogger("requests").propagate = False
 logging.getLogger("urllib3").propagate = False
 
@@ -67,13 +55,8 @@ TERMINATION_MSG = (
     lambda x: len(re.findall(r"TERMINATE", str(x.get("content", ""))[-9:].upper())) > 0
 )
 
-root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# TERMINATION_MSG = (
-#     lambda x: isinstance(x, dict)
-#     and "TERMINATE" == str(x.get("content", ""))[-9:].upper()
-# )
 
-
+# TODO: text compression https://microsoft.github.io/autogen/docs/topics/handling_long_contexts/compressing_text_w_llmligua
 class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
     """Custom retriever agent that uses an embeddings database to retrieve relevant docs."""
 
@@ -211,7 +194,7 @@ class CodeExecutorManager(JupyterCodeExecutor):
         output_dir: Path | str = ...,
     ):
         # self.server = DockerJupyterServer()
-        super().__init__(jupyter_server, kernel_name, timeout, output_dir)
+        super().__init__(jupyter_server, kernel_name, 300, output_dir)
 
 
 class CustomDockerJupyterServer(DockerJupyterServer):
@@ -299,14 +282,20 @@ class CodingAssistant(AssistantAgent):
 
         for _, code in code_blocks:
             # Execute the code using the provided executor
-            result = self.executor.execute_code_blocks(
-                code_blocks=[CodeBlock(language="python", code=code)]
-            )
-            execution_feedback.append(
-                {"code": code, "exit_code": result.exit_code, "logs": result.output}
-            )
+            try:
+                result = self.executor.execute_code_blocks(
+                    code_blocks=[CodeBlock(language="python", code=code)]
+                )
+                execution_feedback.append(
+                    {"code": code, "exit_code": result.exit_code, "logs": result.output}
+                )
+                return execution_feedback
 
-        return execution_feedback
+            except Exception as e:
+                execution_feedback.append(
+                    {"code": code, "exit_code": -1, "logs": str(e)}
+                )
+                return execution_feedback
 
         # with DockerJupyterServer() as docker_server:
         #     executor = JupyterCodeExecutor(docker_server)
@@ -536,6 +525,8 @@ class GCManager(GroupChatManager):
                     reply = speaker.generate_reply(sender=self)
                 else:
                     raise
+            except Exception as e:
+                logger.info(e)
 
             if reply is None:
                 break

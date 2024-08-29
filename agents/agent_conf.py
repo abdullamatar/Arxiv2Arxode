@@ -35,7 +35,7 @@ gcconf = {
     #         "api_key": os.environ.get("OPENAI_APIKEY2"),
     #     }
     # ],
-    "cache_seed": 44,  # quarter
+    "cache_seed": 45,  # quarter
     # "cache_seed": 48,  # full
 }
 

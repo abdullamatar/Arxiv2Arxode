@@ -11,6 +11,7 @@ from typing import List
 # autogen
 import autogen
 from autogen import ConversableAgent, GroupChat, gather_usage_summary
+
 # hf
 from datasets import load_from_disk
 
@@ -118,9 +119,10 @@ class Coordinator:
                 # ret_msg = retriever.generate_init_message(message=message, n_results=7)
             return ret_msg if ret_msg else message
 
-        # TODO: https://github.com/olimoz/AI_Teams_AutoGen/blob/main/JupyterNotebooksForAutoGen.ipynb
         gcman = GCManager(groupchat=gc, llm_config=gcconf, tid=task_idx)
 
+        # NOTE: https://microsoft.github.io/autogen/docs/topics/groupchat/transform_messages_speaker_selection
+        # Above url for transforming token lengt
         # 16k token limits for gpt-3.5 family #The below token limitation stuff can be ignrored when using gpt3.5 see the function in agents.py file
         # it is a hacky, unstable work around as the below Transform was not working right when AutoGen released it and I had to change the code internally to get it to work. :).
 
@@ -164,7 +166,7 @@ class Coordinator:
         ]
         combined_stats["task_idx"] = task_idx
 
-        with open("mlquart4-gc.jsonl", "a") as f:
+        with open("mlquart7-gc.jsonl", "a") as f:
             f.write(json.dumps(combined_stats) + "\n")
 
         return combined_stats
@@ -181,133 +183,134 @@ def handler(signum, frame):
 signal.signal(signal.SIGALRM, handler)
 
 
-def mp_execute_task(task_queue, result_queue):
-    while not task_queue.empty():
-        try:
-            task = task_queue.get_nowait()
-            if task is None:
-                break
+# def mp_execute_task(task_queue, result_queue):
+#     while not task_queue.empty():
+#         try:
+#             task = task_queue.get_nowait()
+#             if task is None:
+#                 break
 
-            signal.alarm(300)
+#             signal.alarm(300)
 
-            result = Coordinator(
-                team_name="test",
-                agents=marl(collection_name="MLBench_papers"),
-            ).code_gen_group_chat(
-                f"Here is some information from a readme related to the task at hand, this information is more than enough to successfully implement the following task and is of utmost importance, use it as guidance and a starting point to build from:\n {task['oracle']}\nTo prepare the execution environment please run this command: {task['prefix_code']}\n"
-                f"Here is the task description:\n{task['instruction']}\nAvoid any executing things that require standard inputs to given, such as an API key or token.\n"
-                f"The type of output expected for this task is {task['type']}.",
-                epochs=7,
-                task_idx=task["id"],
-            )
+#             result = Coordinator(
+#                 team_name="test",
+#                 agents=marl(collection_name="MLBench_papers"),
+#             ).code_gen_group_chat(
+#                 f"Here is some information from a readme related to the task at hand, this information is more than enough to successfully implement the following task and is of utmost importance, use it as guidance and a starting point to build from:\n {task['oracle']}\nTo prepare the execution environment please run this command: {task['prefix_code']}\n"
+#                 f"Here is the task description:\n{task['instruction']}\nAvoid any executing things that require standard inputs to given, such as an API key or token.\n"
+#                 f"The type of output expected for this task is {task['type']}.",
+#                 epochs=7,
+#                 task_idx=task["id"],
+#             )
 
-            signal.alarm(0)
+#             signal.alarm(0)
 
-            logger.info(f"Task {task['id']} completed successfully.")
-            result_queue.put(result)
+#             logger.info(f"Task {task['id']} completed successfully.")
+#             result_queue.put(result)
 
-        except TimeoutException:
-            logger.info(f"Skipping task {task['id']} due to timeout")
-        except Exception as e:
-            logger.error(f"Error in task {task['id']}: {str(e)}")
+#         except TimeoutException:
+#             logger.info(f"Skipping task {task['id']} due to timeout")
+#         except Exception as e:
+#             logger.error(f"Error in task {task['id']}: {str(e)}")
 
-    result_queue.put("&done&")
-
-
-def listener(result_queue, output_file):
-    with open(output_file, "a") as f:
-        while True:
-            result = result_queue.get()
-            if result == "&done&":
-                break
-            f.write(json.dumps(result) + "\n")
-            f.flush()
+#     result_queue.put("&done&")
 
 
-def run_multiproc(
-    mlbench, subset, num_workers=4, output_file="agent_runs_multiproc.jsonl"
-):
-    task_queue = mp.Queue()
-    result_queue = mp.Queue()
-
-    for task in mlbench[subset]:
-        task_queue.put(task)
-        # break
-
-    listener_process = mp.Process(target=listener, args=(result_queue, output_file))
-    listener_process.start()
-
-    worker_processes = []
-    for _ in range(num_workers):
-        worker = mp.Process(target=mp_execute_task, args=(task_queue, result_queue))
-        worker.start()
-        worker_processes.append(worker)
-
-    # wait for workers to finish
-    for worker in worker_processes:
-        worker.join()
-
-    result_queue.put(None)
-    listener_process.join()
+# def listener(result_queue, output_file):
+#     with open(output_file, "a") as f:
+#         while True:
+#             result = result_queue.get()
+#             if result == "&done&":
+#                 break
+#             f.write(json.dumps(result) + "\n")
+#             f.flush()
 
 
-def process_task(task, log_dir="../logs", epochs=7):
-    try:
-        signal.alarm(300)  # Set task timeout
+# def run_multiproc(
+#     mlbench, subset, num_workers=4, output_file="agent_runs_multiproc.jsonl"
+# ):
+#     task_queue = mp.Queue()
+#     result_queue = mp.Queue()
 
-        result = Coordinator(
-            team_name="test",
-            agents=marl(collection_name="MLBench_papers"),
-        ).code_gen_group_chat(
-            f"Here is some information from a readme related to the task at hand, this information is more than enough to successfully implement the following task and is of utmost importance, use it as guidance and a starting point to build from:\n {task['oracle']}\nTo prepare the execution environment please run this command: {task['prefix_code']}\n"
-            f"Here is the task description:\n{task['instruction']}\nAvoid any executing things that require standard inputs to given, such as an API key or token.\n"
-            f"The type of output expected for this task is {task['type']}.",
-            epochs=epochs,
-            task_idx=task["id"],
-        )
+#     for task in mlbench[subset]:
+#         task_queue.put(task)
+#         # break
 
-        signal.alarm(0)  # Disable the alarm
+#     listener_process = mp.Process(target=listener, args=(result_queue, output_file))
+#     listener_process.start()
 
-        logger.info(f"Task {task['id']} completed successfully.")
-        return result
+#     worker_processes = []
+#     for _ in range(num_workers):
+#         worker = mp.Process(target=mp_execute_task, args=(task_queue, result_queue))
+#         worker.start()
+#         worker_processes.append(worker)
 
-    except TimeoutException:
-        logger.info(f"Skipping task {task['id']} due to timeout")
-        return None
-    except Exception as e:
-        logger.error(f"Error in task {task['id']}: {str(e)}")
-        return None
+#     # wait for workers to finish
+#     for worker in worker_processes:
+#         worker.join()
 
-
-def run_multiproc2(
-    mlbench, subset, output_file="agent_runs_multiproc.jsonl", max_workers=4
-):
-    tasks = mlbench[subset]
-    results = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(process_task, task): task for task in tasks}
-        with open(output_file, "a") as f:
-            for future in as_completed(futures):
-                result = future.result()
-                if result is not None:
-                    f.write(json.dumps(result) + "\n")
-                    f.flush()
-
-    logger.info(f"Finished processing {len(results)} tasks.")
+#     result_queue.put(None)
+#     listener_process.join()
 
 
-def execute_task(mlbench, iteration):
+# def process_task(task, log_dir="../logs", epochs=7):
+#     try:
+#         signal.alarm(300)  # Set task timeout
+
+#         result = Coordinator(
+#             team_name="test",
+#             agents=marl(collection_name="MLBench_papers"),
+#         ).code_gen_group_chat(
+#             f"Here is some information from a readme related to the task at hand, this information is more than enough to successfully implement the following task and is of utmost importance, use it as guidance and a starting point to build from:\n {task['oracle']}\nTo prepare the execution environment please run this command: {task['prefix_code']}\n"
+#             f"Here is the task description:\n{task['instruction']}\nAvoid any executing things that require standard inputs to given, such as an API key or token.\n"
+#             f"The type of output expected for this task is {task['type']}.",
+#             epochs=epochs,
+#             task_idx=task["id"],
+#         )
+
+#         signal.alarm(0)  # Disable the alarm
+
+#         logger.info(f"Task {task['id']} completed successfully.")
+#         return result
+
+#     except TimeoutException:
+#         logger.info(f"Skipping task {task['id']} due to timeout")
+#         return None
+#     except Exception as e:
+#         logger.error(f"Error in task {task['id']}: {str(e)}")
+#         return None
+
+
+# def run_multiproc2(
+#     mlbench, subset, output_file="agent_runs_multiproc.jsonl", max_workers=4
+# ):
+#     tasks = mlbench[subset]
+#     results = []
+#     with ThreadPoolExecutor(max_workers=max_workers) as executor:
+#         futures = {executor.submit(process_task, task): task for task in tasks}
+#         with open(output_file, "a") as f:
+#             for future in as_completed(futures):
+#                 result = future.result()
+#                 if result is not None:
+#                     f.write(json.dumps(result) + "\n")
+#                     f.flush()
+
+#     logger.info(f"Finished processing {len(results)} tasks.")
+
+
+def execute_tasks(agents, mlbench, iteration):
     # function to skip over blocking stdin prompts for whatever reason (i,e. an api key being required via some library).
     try:
-        signal.alarm(300)
+        signal.alarm(420)
 
         Coordinator(
             team_name="test",
-            agents=marl(collection_name="MLBench_papers"),
+            agents=agents,
         ).code_gen_group_chat(
-            f"Here is some information from a readme related to the task at hand, this information is more than enough to successfully implement the following task and is of utmost importance, use it as guidance and a starting point, you are operating within a jupyter IPykernel notebook environment:\n {mlbench['quarter'][iteration]['oracle']}\nTo prepare the execution environment please run this command in the notebook: {mlbench['quarter'][iteration]['prefix_code']}\n"
-            f"Here is the task description:\n{mlbench['quarter'][iteration]['instruction']}\nAvoid executing any things that require standard inputs to be given, such as an API key or token.\n"
-            f"The type of output expected for this task is {mlbench['quarter'][iteration]['type']}.",
+            f"Here is some information from a readme related to the task at hand, this information is important to successfully implement the following task use it as guidance and a starting point. You are operating within a JUPYTER IPYKERNEL NOTEBOOK ENVIRONMENT:\n {mlbench['quarter'][iteration]['oracle']}\nTo prepare the execution environment please run this command in the notebook: {mlbench['quarter'][iteration]['prefix_code']}\n"
+            f"Here is the task description, this is your main goal to fulfil:\n{mlbench['quarter'][iteration]['instruction']}\nAvoid executing any things that require standard inputs to be given, such as an API key or token.\n"
+            f"If the task requires the github repository to be completed this is the projects github repo, {mlbench['quarter']['iteration']['github']}",
+            # f"The type of output expected for this task is {mlbench['quarter'][iteration]['type']}.",
             epochs=7,
             task_idx=mlbench["quarter"][iteration]["id"],
         )
@@ -325,6 +328,7 @@ def execute_task(mlbench, iteration):
 
 if __name__ == "__main__":
     mlbench = load_from_disk(root_dir + "/lib/eval/MLBench/datasets/")
+    agents = marl(collection_name="MLBench_papers")
 
     # mlbench = load_from_disk(root_dir + "/lib/eval/MLBench/datasets/")
     # run_multiproc2(
@@ -333,10 +337,9 @@ if __name__ == "__main__":
     #     # max_workers=5,
     #     output_file="mlquart3.jsonl",
     # )
-
     # process_in_batches(mlbench)
-    for i in range(12, len(mlbench["quarter"])):
-        execute_task(mlbench, i)
+    for i in range(30, len(mlbench["quarter"])):
+        execute_tasks(agents, mlbench, i)
 
     # with open("./temp.jsonl", "r") as f:
     #     tasks = [json.loads(line) for line in f]
