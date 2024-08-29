@@ -7,27 +7,23 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
 # autogen
-from autogen import (
-    Agent,
-    AssistantAgent,
-    ConversableAgent,
-    GroupChatManager,
-    UserProxyAgent,
-)
-from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
+from autogen import (Agent, AssistantAgent, ConversableAgent, GroupChatManager,
+                     UserProxyAgent)
+from autogen.agentchat.contrib.retrieve_user_proxy_agent import \
+    RetrieveUserProxyAgent
 from autogen.agentchat.contrib.vectordb.base import QueryResults
 from autogen.agentchat.groupchat import GroupChat
 from autogen.code_utils import extract_code
 from autogen.coding import CodeBlock
 from autogen.coding.jupyter import DockerJupyterServer, JupyterCodeExecutor
-from autogen.coding.jupyter.base import JupyterConnectable, JupyterConnectionInfo
+from autogen.coding.jupyter.base import (JupyterConnectable,
+                                         JupyterConnectionInfo)
 from httpx import request
 
 # A2A
 # import agents.agent_conf as agent_conf
 from agents.agent_conf import base_cfg, retrieve_conf
 from lib.embeddings import get_db_connection, get_embedding_func
-
 
 # TODO: use built in logging https://microsoft.github.io/autogen/docs/notebooks/agentchat_logging
 logger = logging.getLogger("agents")
