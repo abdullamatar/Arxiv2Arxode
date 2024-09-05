@@ -6,7 +6,7 @@ import secrets
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
-# autogen
+# AutoGen
 from autogen import (Agent, AssistantAgent, ConversableAgent, GroupChatManager,
                      UserProxyAgent)
 from autogen.agentchat.contrib.retrieve_user_proxy_agent import \
@@ -18,7 +18,6 @@ from autogen.coding import CodeBlock
 from autogen.coding.jupyter import DockerJupyterServer, JupyterCodeExecutor
 from autogen.coding.jupyter.base import (JupyterConnectable,
                                          JupyterConnectionInfo)
-from httpx import request
 
 # A2A
 # import agents.agent_conf as agent_conf
@@ -358,7 +357,7 @@ class GCManager(GroupChatManager):
             trigger=Agent, reply_func=GCManager.run_chat, config=groupchat
         )
 
-        self.tid = tid
+        # self.tid = tid
         self.execution_feedback_list = []
 
     # trulens has this instrument decorator on generate completion methods and retrieval methods, they are added to each agents generate reply, however it seems to expect a str while in autogen the generate_reply methods return may return a dict or None :D...
@@ -622,4 +621,4 @@ def marl(collection_name: str) -> List[ConversableAgent]:
 if __name__ == "__main__":
     exit(9000)
     # nest_asyncio.apply()
-    # asyncio.run(main())
+    # asyncio.run(main)

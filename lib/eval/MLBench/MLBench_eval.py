@@ -1,6 +1,8 @@
 # stdlib
 # import sys
 import json
+from ast import mod
+from collections import defaultdict
 
 # pytorch
 import torch
@@ -8,11 +10,6 @@ import torch.nn.functional as F
 from datasets import load_from_disk  # , Dataset
 # hf
 from transformers import AutoModel, AutoTokenizer  # , AutoModelForCausalLM
-
-# import os
-
-# from huggingface_hub import login
-
 
 # a2a
 # import lib.embeddings as emb
@@ -22,13 +19,15 @@ from transformers import AutoModel, AutoTokenizer  # , AutoModelForCausalLM
 
 def load_tasks(file_path: str):
     with open(file_path, "r") as file:
-        x = [json.loads(line) for line in file]
+        xs = [json.loads(line) for line in file]
 
     simplified_structure = []
 
-    for task in x:
+    for task in xs:
         task_description = task["task_description"]
-        codes = [feedback["code"] for feedback in task.get("exe_feedback", [])]
+        # Flatten exe_feedback for each task which is a list of dicts for each attempt that contains keys ["code","exit_code", "logs"]
+        codes = [feedback["code"] for feedback in task.get("exe_feedback", None)]
+        # len exit_codes == len codes == attempts
         exit_codes = task["exit_codes"]
         task_idx = task["task_idx"]
         simplified_structure.append(
@@ -57,9 +56,11 @@ def compute_sentence_embeddings(sentences, tokenizer, model):
     encoded_input = tokenizer(
         sentences, padding=True, truncation=True, return_tensors="pt"
     )
+    # multiplication with the expanded attention mask that occurs in the mean pooling above discards vital information that perhaps cannot be afforded in the case of source code.
     with torch.no_grad():
         model_output = model(**encoded_input)
-    sentence_embeddings = mean_pooling(model_output, encoded_input["attention_mask"])
+    sentence_embeddings = model_output.last_hidden_state[:, 0, :]
+    # sentence_embeddings = mean_pooling(model_output, encoded_input["attention_mask"])
     sentence_embeddings = F.normalize(sentence_embeddings, p=2, dim=1)
     return sentence_embeddings
 
@@ -73,25 +74,30 @@ def compute_cosine_similarity(embedding1, embedding2):
     return F.cosine_similarity(embedding1, embedding2).mean().item()
 
 
-def evaluate_generated_code(runs, tested_runs_output, t, m):
+def evaluate_generated_code(runs, test_set, t, m):
     similarities = []
 
-    test_set_taskids = {entry["id"]: entry["output"] for entry in tested_runs_output}
+    # default dict because the MLBench dataset has duplicated task ids with different instructions and outputs...
+    test_set_taskids = defaultdict(list)
+    for entry in test_set:
+        test_set_taskids[entry["id"]].append(entry["output"])
+
     succesful_execution_count = 0
     for run in runs:
         generated_codes = run["code_generations"]
 
-        ground_truth = test_set_taskids.get(int(run["task_idx"]))
-        if not ground_truth:
-            continue
+        # gt can is now a list, after processing the first instance of a repeated id pop the first element in the list
+        ground_truth_list = test_set_taskids.get(int(run["task_idx"]))
+        ground_truth = ground_truth_list.pop(0)
+
         assert ground_truth, f"Task {run['task_idx']} not found in test set"
 
         if any(exit_code == 0 for exit_code in run["exit_codes"]):
             succesful_execution_count += 1
 
         for generated_code in generated_codes:
-            generated_embedding = compute_sentence_embeddings(generated_code, t, m)[0]
-            ground_truth_embedding = compute_sentence_embeddings(ground_truth, t, m)[0]
+            generated_embedding = compute_sentence_embeddings(generated_code, t, m)
+            ground_truth_embedding = compute_sentence_embeddings(ground_truth, t, m)
 
             similarity = compute_cosine_similarity(
                 generated_embedding, ground_truth_embedding
@@ -110,7 +116,7 @@ def evaluate_generated_code(runs, tested_runs_output, t, m):
     }
 
 
-def g(dset, subset):
+def g(runs, subset):
     # print(os.getcwd())
     tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
     model = AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
@@ -121,7 +127,7 @@ def g(dset, subset):
     # root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     # print(f"Root dir: {root_dir}")
 
-    runs = load_tasks(dset)
+    runs = load_tasks(runs)
 
     tested_runs = mlbench[subset]
 

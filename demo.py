@@ -53,5 +53,7 @@ crd = Coordinator(
 )
 
 crd.code_gen_group_chat(
-    "Create a simplified example of graph attention networks in python to help me grasp the context."
+    "Create a simplified example of graph attention networks in python to help me grasp the context.",
+    fname="outfile.jsonl",
+    task_idx=1_000_000,  # this is a dummy id that will be used as this is currently run over an entire dataset taking the ids from there...
 )

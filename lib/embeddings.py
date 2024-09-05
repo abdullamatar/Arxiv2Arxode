@@ -1,21 +1,17 @@
 # TODO: Py03 rs bindings for file manip?
-# TODO: Dockerize pgvector, docker image for code execve
-# import pypdf
 import os
-from functools import cached_property
 from typing import List, Optional
 
+# from functools import cached_property
 from dotenv import load_dotenv
+# Langchain
 from langchain.document_loaders import DirectoryLoader, PyPDFLoader
 from langchain.document_loaders.python import PythonLoader
-# from langchain.embeddings.openai import OpenAIEmbeddings
-# from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.schema.document import Document
 from langchain.schema.embeddings import Embeddings
 from langchain.schema.vectorstore import VectorStore
 from langchain.text_splitter import Language, RecursiveCharacterTextSplitter
 from langchain.vectorstores.pgvector import PGVector
-# Changed and updated below import, hopefully nothing breaks...
 from langchain_openai import OpenAIEmbeddings
 
 load_dotenv()
@@ -24,7 +20,7 @@ openaikey = os.environ.get("OPENAI_APIKEY")
 CONNECTION_STRING = PGVector.connection_string_from_db_params(
     driver=os.environ.get("PGVECTOR_DRIVER", "psycopg2"),
     host=os.environ.get("PGV_HOST", "localhost"),
-    port=int(os.environ.get("PGV_PORT", "")),
+    port=int(os.environ.get("PGV_PORT", "5432")),
     database=os.environ.get("PGV_DATABASE", ""),
     user=os.environ.get("PGV_USER", ""),
     password=os.environ.get("PGV_PASSWORD", ""),

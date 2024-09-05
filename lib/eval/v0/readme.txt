@@ -1,0 +1,1 @@
+This directory contains older files that were used to generate previous statistics but the entire evaluation pipeline has changed, they remain here for reference.

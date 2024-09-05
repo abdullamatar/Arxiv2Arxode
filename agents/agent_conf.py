@@ -1,7 +1,6 @@
 import os
 
 # from autogen import config_list_from_json
-
 # from autogen import config_list_from_models
 # TODO: Conform to their way of cfg.......
 
@@ -24,7 +23,7 @@ base_cfg = {
     # "use_cache": False,
     # "seed": 22,
     "config_list": config_list,
-    "temperature": 1.0,
+    "temperature": 0.7,
 }
 
 gcconf = {
@@ -35,8 +34,8 @@ gcconf = {
     #         "api_key": os.environ.get("OPENAI_APIKEY2"),
     #     }
     # ],
-    "cache_seed": 45,  # quarter
-    # "cache_seed": 48,  # full
+    # "cache_seed": 45,  # quarter
+    "cache_seed": 48,  # full
 }
 
 retrieve_conf = {

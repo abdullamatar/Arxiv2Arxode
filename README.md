@@ -43,7 +43,7 @@ AUTOGEN_USE_DOCKER=1
 4. Create the necessary `.env` file at the root of the project directory.
 5. Run the following command to start the pgvector database:</br>
 `docker-compose up -d`
-6. You can now view and run the [demo.py](./demo.py) via the following command: `./run.sh demo.py`. Alternatively, if you have the necessary environment for running jupyter notebook take a look at the [demo.ipynb](./demo.ipynb) file.
+6. You can now view and run the [demo.py](./demo.py) via the following command: `./run.sh demo.py`. Alternatively, if you have the necessary environment for running jupyter notebook take a look at the [demo.ipynb](./notebooks/demo.ipynb) file.
 
 
 <img src="./imgs/DALL·E 2023-12-16 14.50.png" > </img>

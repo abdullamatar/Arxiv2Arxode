@@ -1,11 +1,9 @@
 # STD LIB
 import json
 import logging
-import multiprocessing as mp
 import os
 import signal
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from concurrent.futures import ProcessPoolExecutor
 from typing import List
 
 # autogen
@@ -15,9 +13,13 @@ from autogen import ConversableAgent, GroupChat, gather_usage_summary
 from datasets import load_from_disk
 
 # A2A
-# import lib.functions as functions
 from agents.agent import EmbeddingRetrieverAgent, GCManager, marl
 from agents.agent_conf import gcconf
+
+# import multiprocessing as mp
+
+
+
 
 # TruLens
 # from trulens_eval.tru_custom_app import instrument
@@ -66,7 +68,7 @@ class Coordinator:
 
     # !
     # @instrument
-    def code_gen_group_chat(self, prompt: str, task_idx, epochs: int = 7):
+    def code_gen_group_chat(self, prompt: str, fname, task_idx, epochs: int = 7):
         """
         Run a group chat with the agents and generate code
         """
@@ -165,7 +167,7 @@ class Coordinator:
         ]
         combined_stats["task_idx"] = task_idx
 
-        with open("mlquart7-gc.jsonl", "a") as f:
+        with open(fname, "a") as f:
             f.write(json.dumps(combined_stats) + "\n")
 
         return combined_stats
@@ -181,6 +183,48 @@ def handler(signum, frame):
 
 signal.signal(signal.SIGALRM, handler)
 
+
+# def g():
+#     with ProcessPoolExecutor() as exe:
+#         exe.map(execute_tasks())
+
+
+def execute_tasks(agents: List[ConversableAgent], mlbench, subset: str, iteration):
+    # function to skip over blocking stdin prompts for whatever reason (i,e. an api key being required via some library).
+    try:
+        signal.alarm(420)
+
+        Coordinator(
+            team_name="test",
+            agents=agents,
+        ).code_gen_group_chat(
+            f"Here is some information from a readme related to the task at hand, this information is important to successfully implement the following task use it as guidance and a starting point. You are operating within a JUPYTER IPYKERNEL NOTEBOOK ENVIRONMENT:\n {mlbench[subset][iteration]['oracle']}\nTo prepare the execution environment please run this command in the notebook: {mlbench[subset][iteration]['prefix_code']}\n"
+            f"Here is the task description, this is your main goal to fulfil:\n{mlbench[subset][iteration]['instruction']}\nAvoid executing any things that require standard inputs to be given, such as an API key or token.\n"
+            f"If the task requires the github repository here it is, remember to prefix shell commands with an exclamation mark: {mlbench[subset][iteration]['github']}",
+            # f"The type of output expected for this task is {mlbench[subset][iteration]['type']}.",
+            epochs=7,
+            task_idx=mlbench[subset][iteration]["id"],
+            fname="mlfull.jsonl",
+        )
+
+        signal.alarm(0)
+        logger.info(f"Iteration {iteration + 1} completed successfully.")
+        # return results
+    except TimeoutException:
+        logger.info(f"Skipping prompt for iteration {iteration + 1}")
+
+
+if __name__ == "__main__":
+    mlbench = load_from_disk(root_dir + "/lib/eval/MLBench/datasets/")
+    agents = marl(collection_name="MLBench_papers")
+    subset = "full"
+
+    # with ProcessPoolExecutor() as executor:
+    #     for iteration in range(len(mlbench[subset])):
+    #         executor.submit(execute_tasks, agents, mlbench, subset, iteration)
+
+    for i in range(88, len(mlbench[subset])):
+        execute_tasks(agents=agents, mlbench=mlbench, subset=subset, iteration=i)
 
 # def mp_execute_task(task_queue, result_queue):
 #     while not task_queue.empty():
@@ -295,114 +339,3 @@ signal.signal(signal.SIGALRM, handler)
 #                     f.flush()
 
 #     logger.info(f"Finished processing {len(results)} tasks.")
-
-
-def execute_tasks(agents, mlbench, iteration):
-    # function to skip over blocking stdin prompts for whatever reason (i,e. an api key being required via some library).
-    try:
-        signal.alarm(420)
-
-        Coordinator(
-            team_name="test",
-            agents=agents,
-        ).code_gen_group_chat(
-            f"Here is some information from a readme related to the task at hand, this information is important to successfully implement the following task use it as guidance and a starting point. You are operating within a JUPYTER IPYKERNEL NOTEBOOK ENVIRONMENT:\n {mlbench['quarter'][iteration]['oracle']}\nTo prepare the execution environment please run this command in the notebook: {mlbench['quarter'][iteration]['prefix_code']}\n"
-            f"Here is the task description, this is your main goal to fulfil:\n{mlbench['quarter'][iteration]['instruction']}\nAvoid executing any things that require standard inputs to be given, such as an API key or token.\n"
-            f"If the task requires the github repository to be completed this is the projects github repo, {mlbench['quarter']['iteration']['github']}",
-            # f"The type of output expected for this task is {mlbench['quarter'][iteration]['type']}.",
-            epochs=7,
-            task_idx=mlbench["quarter"][iteration]["id"],
-        )
-
-        signal.alarm(0)
-        logger.info(f"Iteration {iteration + 1} completed successfully.")
-        # return results
-    except TimeoutException:
-        logger.info(f"Skipping prompt for iteration {iteration + 1}")
-
-
-# class TimeoutException(Exception):
-#     pass
-
-
-if __name__ == "__main__":
-    mlbench = load_from_disk(root_dir + "/lib/eval/MLBench/datasets/")
-    agents = marl(collection_name="MLBench_papers")
-
-    # mlbench = load_from_disk(root_dir + "/lib/eval/MLBench/datasets/")
-    # run_multiproc2(
-    #     mlbench,
-    #     "quarter",
-    #     # max_workers=5,
-    #     output_file="mlquart3.jsonl",
-    # )
-    # process_in_batches(mlbench)
-    for i in range(30, len(mlbench["quarter"])):
-        execute_tasks(agents, mlbench, i)
-
-    # with open("./temp.jsonl", "r") as f:
-    #     tasks = [json.loads(line) for line in f]
-    # manager = mp.Manager()
-    # q = manager.Queue()
-    # lock = manager.Lock()
-
-    # listener_proc = mp.Process(target=listener, args=(q, "agent_runs_multiproc.jsonl"))
-    # listener_proc.start()
-    # file_pool = mp.Pool(1)
-    # file_pool.apply_async(listener, (q, "agent_runs_multiproc.jsonl"))
-    # pool = mp.Pool(16)
-    # procs = []
-    # for i in range(len(mlbench["quarter"][:15])):
-    # p = mp.Process(target=execute_task, args=(mlbench, i, q))
-    # procs.append(p)
-    # p.start()
-    # for pross in procs:
-    # pross.join()
-    # job.get()
-
-    # q.put("#done#")
-    # pool.close()
-    # pool.join()
-    # file_pool.close()
-    # file_pool.join()
-    # listener_proc.join()
-    # exe_exe_task2()
-
-    # # with Manager() as manager:
-    # #     results = manager.list()
-    # #     with concurrent.futures.ProcessPoolExecutor(max_workers=7) as executor:
-    # #         futures = [
-    # #             executor.submit(execute_task, mlbench, i)
-    # #             for i in range(len(mlbench["quarter"][:15]))
-    # #         ]
-    # #         for future in concurrent.futures.as_completed(futures):
-    # #             try:
-    # #                 result = future.result()
-    # #                 if result:
-    # #                     results.append(result)
-    # #                     logger.info(f"Result for {result['task_idx']}: {result}")
-    # #             except Exception as e:
-    # #                 logger.error(f"ERROR: {e}")
-
-    #     with open("agent_runs_multiproc.jsonl", "a") as f:
-    #         for result in results:
-    #             f.write(json.dumps(result) + "\n")
-
-# def process_batch(mlbench, start_idx, end_idx):
-#     """Process a specific batch of tasks."""
-#     for i in range(start_idx, end_idx):
-#         execute_task(mlbench, i)
-
-
-# def batch_processing_parallel(mlbench, batch_size):
-#     """Process the entire dataset in batches using parallel execution."""
-#     total_tasks = len(mlbench["quarter"])
-#     with concurrent.futures.ThreadPoolExecutor() as executor:
-#         futures = []
-#         for i in range(0, total_tasks, batch_size):
-#             start_idx = i
-#             end_idx = min(i + batch_size, total_tasks)
-#             futures.append(executor.submit(process_batch, mlbench, start_idx, end_idx))
-
-#         for future in concurrent.futures.as_completed(futures):
-#             future.result()

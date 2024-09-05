@@ -1,9 +1,6 @@
-# import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
-# !SEARCH IN OPEN AIchat : setting up a pytorch model for ...
 
 
 class ConversationEnvironment:
@@ -18,36 +15,33 @@ class ConversationEnvironment:
         self.reward = 0
 
     def initialize_state(self):
-        # Initialize the conversation state
+
         return None
 
     def step(self, action):
-        # 1. Apply the action to modify the conversation or LLM inputs
+
         modified_input = self.apply_action(action)
 
-        # 2. Run the LLMs to generate the next piece of conversation
         output = self.run_llms(modified_input)
 
-        # 3. Evaluate the output to calculate the reward
         self.reward = self.evaluator.evaluate(output)
 
-        # 4. Update the state based on the latest conversation
         self.state = self.update_state(output)
 
         return self.state, self.reward
 
     def apply_action(self, action):
-        # Modify the LLM input based on the selected action
+
         modified_input = None
         return modified_input
 
     def run_llms(self, input):
-        # Generate output from LLMs
+
         output = None
         return output
 
     def update_state(self, output):
-        # Update the conversation state
+
         new_state = None
         return new_state
 
@@ -67,8 +61,8 @@ class PolicyNetwork(nn.Module):
 
 
 def train_rl_agent(env, policy_network, episodes=1000):
-    optimizer = optim.Adam(policy_network.parameters(), lr=0.01)
-    for episode in range(episodes):
+    optimizer = optim.adam.Adam(policy_network.parameters(), lr=0.01)
+    for _ in range(episodes):
         state = env.reset()
         done = False
         while not done:
@@ -78,8 +72,6 @@ def train_rl_agent(env, policy_network, episodes=1000):
 
             next_state, reward = env.step(action)
 
-            # Implement your RL update rule here
-            # This is a placeholder for illustration
             loss = -torch.log(action_probs[action]) * reward
             optimizer.zero_grad()
             loss.backward()
@@ -92,9 +84,7 @@ def train_rl_agent(env, policy_network, episodes=1000):
 
 
 llms, evaluator = None, None
-# Assuming you have initialized your LLMs and evaluator
+
 env = ConversationEnvironment(llms, evaluator)
-policy_network = PolicyNetwork(
-    input_size=100, hidden_size=50, output_size=10
-)  # Adjust sizes as needed
+policy_network = PolicyNetwork(input_size=100, hidden_size=50, output_size=10)
 train_rl_agent(env, policy_network)
