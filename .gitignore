@@ -3,6 +3,7 @@ __pycache__
 .vscode
 temp*/**
 temp*
+runs/
 *back*
 *.pdf
 *.xml
@@ -16,4 +17,5 @@ sandbox
 tmp
 *.jsonl
 *.json
+*.lock
 */stats

@@ -94,12 +94,7 @@ def plot_combined_metrics(cc_metrics_summary, halstead_metrics_summary):
 
 
 if __name__ == "__main__":
-    file_paths = [
-        "/home/sonofman/Research/Arxiv2Arxode/lib/eval/stats/code_complexity/cc_a2a_gpt4.json",
-        "/home/sonofman/Research/Arxiv2Arxode/lib/eval/stats/code_complexity/cc_a2a_turbo.json",
-        "/home/sonofman/Research/Arxiv2Arxode/lib/eval/stats/code_complexity/cc_baseGPT.json",
-        "/home/sonofman/Research/Arxiv2Arxode/lib/eval/stats/code_complexity/cc_base_turbo.json",
-    ]
+    file_paths = [...]
     all_data = []
     for path in file_paths:
         data = read_metrics(path)

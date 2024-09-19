@@ -1,4 +1,5 @@
 # STD LIB
+import atexit
 import logging
 import os
 import re
@@ -21,7 +22,8 @@ from autogen.coding.jupyter.base import (JupyterConnectable,
 
 # A2A
 # import agents.agent_conf as agent_conf
-from agents.agent_conf import base_cfg, retrieve_conf
+from agents.agent_conf import (base_cfg, base_claude_cfg, claude_config_list,
+                               retrieve_conf)
 from lib.embeddings import get_db_connection, get_embedding_func
 
 # TODO: use built in logging https://microsoft.github.io/autogen/docs/notebooks/agentchat_logging
@@ -147,7 +149,7 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         # TODO: The northern winds blow strong...
         # return results
 
-    # This is taken directly from the RetrieveUserProxyAgent class from autogen and is used as a hacky workaround to abide by the token limit of the GPT-3 family of models, it is commented out when using gpt4+.
+    # NOTE: This is taken directly from the RetrieveUserProxyAgent class from autogen and is used as a hacky workaround to abide by the token limit of the GPT-3 family of models, it is commented out when using gpt4+.
 
     # def _get_context(self, results: Dict[str, List[str] | List[List[str]]]):
     #     doc_contents = ""
@@ -233,6 +235,7 @@ WORKDIR "${HOME}"
             docker_env=docker_env,
             token=token,
         )
+        atexit.register(self._cleanup_func)
 
     # def __init__(self, output_dir: Path):
     #     self.executor = JupyterCodeExecutor(self.server, output_dir=output_dir)
@@ -248,7 +251,7 @@ class CodingAssistant(AssistantAgent):
     def __init__(
         self,
         name: str,
-        executor,
+        executor: JupyterCodeExecutor,
         human_input_mode: str | Literal["NEVER"],
         system_message: str | None = None,
         llm_config: Optional[Union[Dict, Literal[False]]] = None,
@@ -271,12 +274,17 @@ class CodingAssistant(AssistantAgent):
         self.executor = executor
         # self.installed_packages = set()
 
-    def detect_and_execute_code(self, message, **kwargs) -> List[Dict] | None:
+    def detect_and_execute_code(
+        self, message: str | None, **kwargs
+    ) -> List[Dict] | None:
         execution_feedback = []
-        code_blocks = extract_code(message["content"])
-
+        code_blocks = extract_code(
+            message["content"]  # type: ignore
+            if isinstance(message, Dict)
+            else message if isinstance(message, str) else None  # type: ignore
+        )  # type: ignore
+        assert code_blocks
         for _, code in code_blocks:
-            # Execute the code using the provided executor
             try:
                 result = self.executor.execute_code_blocks(
                     code_blocks=[CodeBlock(language="python", code=code)]
@@ -291,6 +299,10 @@ class CodingAssistant(AssistantAgent):
                     {"code": code, "exit_code": -1, "logs": str(e)}
                 )
                 return execution_feedback
+
+    def __del__(self):
+        # NOTE: Is this redundant given  atexit function registered above in CustomDockerJupyterServer?
+        self.executor.stop()
 
         # with DockerJupyterServer() as docker_server:
         #     executor = JupyterCodeExecutor(docker_server)
@@ -403,6 +415,7 @@ class GCManager(GroupChatManager):
         """Run a group chat."""
         # Adapted from /autogen/agentchat/groupchat.py:GroupChatManager.run_chat
 
+        reply = None
         if messages is None:
             messages = self._oai_messages[sender]
         message = messages[-1]
@@ -424,11 +437,12 @@ class GCManager(GroupChatManager):
             # Isolate the coding LLM
             # change to check by name
 
-            with open(os.path.join(root_dir, "logs/final_convs.log"), "a") as f:
-                f.write(f"Round {i}\n")
-                f.write(f"{speaker.name}:\n")
-                f.write(f"{message['content']}\n")
+            # with open(os.path.join(root_dir, "logs/final_convs.log"), "a") as f:
+            #     f.write(f"Round {i}\n")
+            #     f.write(f"{speaker.name}:\n")
+            #     f.write(f"{message['content']}\n")
 
+            self._last_speaker = speaker
             groupchat.append(message, speaker)
 
             # broadcast the message to all agents except the speaker
@@ -448,63 +462,13 @@ class GCManager(GroupChatManager):
                 ###########################  A2A  ###################################
                 ###########################  A2A  ###################################
                 ###########################  A2A  ###################################
-
                 # IF FALSE ಥ_ಥ #
-                if False and isinstance(speaker, CodingAssistant):
-                    # if code in msg then execute and generate reply
-                    # ? message, or what???
-                    # TODO: How to best attach logs and exitcode to message
+                # if False and isinstance(speaker, CodingAssistant):
+                #     # if code in msg then execute and generate reply
+                #     # ? message, or what???
+                #     # TODO: How to best attach logs and exitcode to message
 
-                    reply = speaker.generate_reply(sender=self)
-                    # exe_feedback = speaker.detect_and_execute_code(message)
-                # elif speaker.name == "code_reviewer" and exe_feedback:
-                #     # speaker.
-                #     reply = speaker.generate_reply(
-                #         [
-                #             *messages[-3:],
-                #             {
-                #                 "role": "assistant",
-                #                 "content": f"{exe_feedback}\nGenerate an evaluation score for the code that has been generated given the above status, give the score first and then whatever suggestion you deem fit and necessary. REPLY EXACTLY EVALUATION SCORE=<score> followed by your suggestion on a new line where <score> is a float between 0 and 1.",
-                #             },
-                #         ],
-                #         sender=self,
-                #     )
-                #     score_pattern = re.compile(r"EVALUATION SCORE=(\d+\.\d+)")
-                # elif speaker.name == "code_reviewer" and exe_feedback:
-                #     # speaker.
-                #     reply = speaker.generate_reply(
-                #         [
-                #             *messages[-3:],
-                #             {
-                #                 "role": "assistant",
-                #                 "content": f"{exe_feedback}\nGenerate an evaluation score for the code that has been generated given the above status, give the score first and then whatever suggestion you deem fit and necessary. REPLY EXACTLY EVALUATION SCORE=<score> followed by your suggestion on a new line where <score> is a float between 0 and 1.",
-                #             },
-                #         ],
-                #         sender=self,
-                #     )
-                #     score_pattern = re.compile(r"EVALUATION SCORE=(\d+\.\d+)")
-
-                #     # print(f"Reply: {reply}")
-                #     # print(f"typeof reply: {type(reply)}")
-                #     try:
-                #         evaluation_score = re.findall(
-                #             score_pattern,
-                #             reply if isinstance(reply, str) else reply["content"],
-                #         )
-                #     except Exception as e:
-                #         evaluation_score = -1
-                #     logger.info(f"Evaluation score: {evaluation_score}")
-                #     # print(f"Reply: {reply}")
-                #     # print(f"typeof reply: {type(reply)}")
-                #     try:
-                #         evaluation_score = re.findall(
-                #             score_pattern,
-                #             reply if isinstance(reply, str) else reply["content"],
-                #         )
-                #     except Exception as e:
-                #         evaluation_score = -1
-                #     logger.info(f"Evaluation score: {evaluation_score}")
-
+                #     reply = speaker.generate_reply(sender=self)
                 ###########################  A2A  ###################################
                 ###########################  A2A  ###################################
                 ###########################  A2A  ###################################
@@ -536,15 +500,9 @@ class GCManager(GroupChatManager):
                 )
 
                 # dumb hack to make sure the code reviewer has the chance to get the exe_feedback and evaluate
-                i = groupchat.max_round - 2 if i == (groupchat.max_round - 1) else i
+                # i = groupchat.max_round - 2 if i == (groupchat.max_round - 1) else i
 
                 self.execution_feedback_list.extend(exe_feedback)
-                # x = {}
-                # x["execution_feedback"] = self.execution_feedback_list
-                # x["tid"] = self.tid
-                # with open("new_runs.jsonl", "a") as g:
-                #     g.write(json.dumps(x) + "\n")
-
         if self.client_cache is not None:
             for a in groupchat.agents:
                 a.client_cache = a.previous_cache
@@ -565,8 +523,10 @@ Sometimes, there might be a need to use RetrieveUserProxyAgent in group chat wit
 # rc: https://microsoft.github.io/autogen/blog/2023/10/18/RetrieveChat/
 
 
-def marl(collection_name: str) -> List[ConversableAgent]:
-    outdir = Path("sandbox")
+def marl(collection_name: str = "MLBench_papers") -> List[ConversableAgent]:
+    outdir = Path(
+        "sandbox"
+    )  # FIXME: Code that is generated and executed is not written to this dir...
     os.makedirs(outdir, exist_ok=True)
     executor = CodeExecutorManager(
         jupyter_server=CustomDockerJupyterServer(token=secrets.token_hex(32)),
@@ -576,10 +536,9 @@ def marl(collection_name: str) -> List[ConversableAgent]:
     agent0 = UserProxyAgent(
         name="main_userproxy",
         human_input_mode="NEVER",
-        # code_execution_config=True,
         system_message="Conduct everything in a step by step manner, you are initiating the conversations, you are great at what you do. Please use the retrieve_content function, the more information you have the better.",
         description="Your role is to coordinate the completion of tasks related to generating code based off of machine learning and AI research. You must be diligent and operate in a step by step manner, make use of all the agents at your disposal.",
-        llm_config=base_cfg,
+        llm_config=base_claude_cfg,
     )
 
     retriever = EmbeddingRetrieverAgent(
@@ -591,7 +550,7 @@ def marl(collection_name: str) -> List[ConversableAgent]:
         collection_name=collection_name,
         llm_config=retrieve_conf,
         retrieve_config={
-            **retrieve_conf,
+            # **retrieve_conf,
             "task": "qa",
             "client": "psycopg2",
         },
@@ -601,7 +560,7 @@ def marl(collection_name: str) -> List[ConversableAgent]:
         name="code_reviewer",
         description="An agent used to review code, given the current information retrieved and other information related to the main problem at hand. Review the code generated by the coding_agent to make sure it is executable and logically follows the ideas from the research and source code. Ensure that any code generated is able to run within a jupyter notebook environment, for example when installing packages ensure that you are running !pip and not a bash command.",
         system_message="Review the generated code to be run within an IPykernel environment, add to it and modify it as needed to achieve your task and be helpful. Any bash commands such as installing packages with pip need to be setup to run in a python notebook environment. Retrieve additional information from the retrieval agent, plan out what you want to do and why in a step by step manner.",
-        llm_config=base_cfg,
+        llm_config=base_claude_cfg,
         is_termination_msg=TERMINATION_MSG,
     )
 

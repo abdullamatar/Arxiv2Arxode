@@ -8,15 +8,37 @@ config_list = [
     {
         "model": "gpt-4o",
         "api_key": os.environ.get("OPENAI_APIKEY2"),
+        # "temperature": 1.0,
     },
     {
         "model": "gpt-4-turbo",
         "api_key": os.environ.get("OPENAI_APIKEY2"),
+        # "temperature": 1.0,
     },
     # {
     #     "model": "gpt-4-1106-preview",
     #     "api_key": os.environ.get("OPENAI_APIKEY2"),
     # },
+]
+
+claude_config_list = [
+    {
+        "model": "claude-3-5-sonnet-20240620",
+        "api_key": os.environ.get("ANTHROPIC_API_KEY"),
+        "api_type": "anthropic",
+        "temperature": 1.0,
+    },
+    {
+        "model": "claude-3-sonnet-20240229",
+        "api_key": os.environ.get("ANTHROPIC_API_KEY"),
+        "api_type": "anthropic",
+        "temperature": 1.0,
+    },
+    {
+        "model": "claude-3-opus-20240229",
+        "api_key": os.environ.get("ANTHROPIC_API_KEY"),
+        "api_type": "anthropic",
+    },
 ]
 
 base_cfg = {
@@ -26,16 +48,14 @@ base_cfg = {
     "temperature": 0.7,
 }
 
+base_claude_cfg = {"config_list": claude_config_list}
+
+
 gcconf = {
     "config_list": config_list,
-    # "config_list": [
-    #     {
-    #         "model": "gpt-3.5-turbo",
-    #         "api_key": os.environ.get("OPENAI_APIKEY2"),
-    #     }
-    # ],
     # "cache_seed": 45,  # quarter
-    "cache_seed": 48,  # full
+    # "cache_seed": 48,  # full
+    "cache_seed": 78,  # CLAUDE
 }
 
 retrieve_conf = {
@@ -68,51 +88,10 @@ You are an agent tasked with retrieving information from research papers to aid 
 The context is:
 {input_context}
 """,
-    # "timeout": 180,
-    # "max_retries": 5,
-    # "seed": 42,
 }
 
-# exec_py_conf = {
-#     **base_cfg,
-#     "functions": [
-#         {
-#             "name": "exec_py",
-#             "description": "Execute generated python code",
-#             "parameters": {
-#                 "type": "object",
-#                 "properties": {
-#                     "code": {
-#                         "type": "string",
-#                         "description": "Python str to be executed.",
-#                     }
-#                 },
-#                 "required": ["code"],
-#             },
-#         }
-#     ],
-# }
 
-# write_file_config = {
-#     **base_cfg,
-#     "functions": [
-#         {
-#             "name": "write_file",
-#             "description": "Save accepted python code to file",
-#             "parameters": {
-#                 "type": "object",
-#                 "properties": {
-#                     "fname": {
-#                         "type": "string",
-#                         "description": "The name of the file to write",
-#                     },
-#                     "content": {
-#                         "type": "string",
-#                         "description": "The content of the file to write",
-#                     },
-#                 },
-#                 "required": ["fname", "content"],
-#             },
-#         }
-#     ],
-# }
+claude_retr_conf = {
+    **retrieve_conf,
+    "config_list": claude_config_list,  # overwrite prev config_list ^
+}

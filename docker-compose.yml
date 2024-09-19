@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   pgvector_db:
     image: pgvector/pgvector:pg14
