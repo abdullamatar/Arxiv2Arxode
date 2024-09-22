@@ -5,18 +5,13 @@ import multiprocessing as mp
 import os
 from collections import defaultdict
 
-# matplotlib & seaborn
 import matplotlib.pyplot as plt
-# np
 import numpy as np
-# pd
 import pandas as pd
 import seaborn as sns
-# pytorch
 import torch
 import torch.nn.functional as F
 from datasets import load_from_disk  # , Dataset
-# hf
 from transformers import AutoModel, AutoTokenizer  # , AutoModelForCausalLM
 
 # a2a
@@ -65,22 +60,35 @@ def mean_pooling(model_output, attention_mask):
     )
 
 
-def compute_sentence_embeddings(sentences, tokenizer, model):
+def compute_sentence_embeddings(
+    sentences: list[str], tokenizer: AutoTokenizer, model: AutoModel
+) -> torch.Tensor:
+    """
+    Compute sentence embeddings for a list of sentences using a specified tokenizer and model.
+    Args:
+        sentences (list of str): A list of sentences to be encoded.
+        tokenizer (PreTrainedTokenizer): A tokenizer to convert sentences into token IDs.
+        model (PreTrainedModel): A pre-trained model to generate embeddings.
+    Returns:
+        torch.Tensor: A tensor containing the normalized sentence embeddings.
+    """
     # model = model.to(device)
     encoded_input = tokenizer(
         sentences, padding=True, truncation=True, return_tensors="pt"
-    )
+    )  # type: ignore
     encoded_input = inp2d(encoded_input)
     # multiplication with the expanded attention mask that occurs in the mean pooling above discards vital information that perhaps cannot be afforded in the case of programming language.
     with torch.no_grad():
-        model_output = model(**encoded_input)
+        model_output = model(**encoded_input)  # type: ignore
     sentence_embeddings = model_output.last_hidden_state[:, 0, :]
     # sentence_embeddings = mean_pooling(model_output, encoded_input["attention_mask"])
     sentence_embeddings = F.normalize(sentence_embeddings, p=2, dim=1)
     return sentence_embeddings
 
 
-def compute_cosine_similarity(embedding1, embedding2):
+def compute_cosine_similarity(
+    embedding1: torch.Tensor, embedding2: torch.Tensor
+) -> float:
     # Ensure embeddings are 2D tensors with a batch dimension
     if embedding1.dim() == 1:
         embedding1 = embedding1.unsqueeze(0)
@@ -89,22 +97,35 @@ def compute_cosine_similarity(embedding1, embedding2):
     return F.cosine_similarity(embedding1, embedding2).mean().item()
 
 
-def evaluate_generated_code(runs, test_set, t, m):
+def evaluate_generated_code(
+    runs: list[dict], test_set: list[dict], t: AutoTokenizer, m: AutoModel
+) -> tuple[pd.DataFrame, pd.Series]:
     """
-    returns: A pd.DataFrame tuple of attempt level information and general performance information
+    Evaluates the generated code against a test set and computes performance metrics.
+
+    Args:
+        runs (list): A list of dictionaries containing the generated code and execution results.
+        test_set (list): A list of dictionaries containing the test set tasks (ground truths) with their ids, instructions, and outputs.
+        t: Model or tokenizer used for computing sentence embeddings.
+        m: Model or metric used for computing sentence embeddings.
+
+    Returns:
+        tuple: A tuple containing:
+            - pd.DataFrame: A DataFrame with detailed attempt-level information including task index, description, attempt number, generated code, exit code, and similarity score.
+            - pd.Series: A Series with general performance information including evaluation score and weighted success rate.
     """
     similarities = []
-    # pr_progress = []
-    # ec_progress = []
     table_data = []
     weighted_success_sum = 0
-    # total_attempts = 0
 
     # default dict because the MLBench dataset has duplicated task ids with different instructions and outputs...
     test_set_taskids_output_map = defaultdict(list)
     test_set_tids_instruction_map = defaultdict(list)
     for entry in test_set:
+        # map task id to ground truth output
         test_set_taskids_output_map[entry["id"]].append(entry["output"])
+
+        # map task id to task instruction
         test_set_tids_instruction_map[entry["id"]].append(entry["instruction"])
 
     for run in runs:
@@ -114,24 +135,30 @@ def evaluate_generated_code(runs, test_set, t, m):
             generated_codes = run["code_generations"]
 
             # Index via the task ids present in the tested runs, maybe some tasks in the dataset failed to be present in the tested runs
-            task_idx = run["task_idx"]
+            task_idx = run[
+                "task_idx"
+            ]  # Used to match task_idx from the generated code to the "id" field in the test set
 
             try:
-                # print(task_idx)
                 task_desc = test_set_tids_instruction_map.get(int(task_idx)).pop(0)
 
-                # gt is now a list, after processing the first instance of a repeated id pop the first element in the list
+                # gt is now (potentially) a list, after processing the first instance of an id pop the first element in the list
                 ground_truth_list = test_set_taskids_output_map.get(int(task_idx))
-                ground_truth = ground_truth_list.pop(0)
+
+                ground_truth = ground_truth_list.pop(
+                    0
+                )  # get first element (potential first instance of repeated task["id"]), which should correspond to the first instance of the given candidate task_idx as it appeared in the candidate outputs. However, given the updated  multiprocessed nature of the code (for claude attempts and in distribution python), this may now not be the case. i,e,. the first instance of the task id from the test set may be matched against any other instance of the task id in the candidate outputs, depending on what order it was executed... This is only an issue for dup'd ids and there are only a few.
             except Exception as e:
                 raise ValueError(
                     f"Task {task_idx} not found in test set or data is malformed: {e}"
                 )
 
-            assert ground_truth, f"Task {task_idx} not found in test set"
+            assert (
+                ground_truth
+            ), f"Task {task_idx} not found in test set, ensure the correct subset is being used."
 
-            # if any(exit_code == 0 for exit_code in run["exit_codes"]):
-            #     succesful_execution_count += 1
+            # There is a single GroundTruth output per task instruction
+            ground_truth_embedding = compute_sentence_embeddings(ground_truth, t, m)
 
             # each task will have multiple candidate generations and all those should be compared to the gt output
             for i, generated_code in enumerate(generated_codes):
@@ -139,12 +166,9 @@ def evaluate_generated_code(runs, test_set, t, m):
                     candidate_embedding = compute_sentence_embeddings(
                         generated_code, t, m
                     )
-                    ground_truth_embedding = compute_sentence_embeddings(
-                        ground_truth, t, m
-                    )
                     similarity = compute_cosine_similarity(
                         candidate_embedding, ground_truth_embedding
-                    )
+                    )  # Due to norm of embeddings, this is equivalent to std matmul -> X_hat @ X.T
                 except Exception as e:
                     raise RuntimeError(
                         f"Error computing embeddings or similarity for task {task_idx}, attempt {i + 1}: {e}"
@@ -160,54 +184,36 @@ def evaluate_generated_code(runs, test_set, t, m):
                         "task_description": task_desc,
                         "attempt": i + 1,
                         "generated_code": generated_code,
-                        "exit_code": exit_code,
+                        "exit_code": abs(exit_code),
                         "similarity": similarity,
                     }
                 )
-                # penalized_success_rate = succesful_execution_count / (len(generated_codes))
-                # print(lgc)
-                # success_rate_for_task = succesful_execution_count / num_attempts_for_task
                 similarities.append(similarity)
-                weighted_success_sum += (
-                    succesful_execution_count / len(generated_codes)
-                    if generated_codes
-                    else 1
+                weighted_success_sum += succesful_execution_count / (
+                    len(generated_codes) if generated_codes else 1
                 )
+
         except Exception as e:
             print(f"Error processing task {task_idx}: {e}")
             raise
 
     weighted_success_rate = weighted_success_sum / len(table_data)
-    # print(weighted_success_rate)
-    evaluation = 0.7 * np.mean(similarities) + weighted_success_rate
+    evaluation = (
+        0.7 * np.mean(similarities) + weighted_success_rate
+    )  # total performance under entire dataset
 
     return pd.DataFrame(table_data), pd.Series(
         {
             "valuation": evaluation,
-            "success_rate": weighted_success_rate,
+            "weighted_success_rate": weighted_success_rate,
         }
     )
-    # average_similarity = np.mean(similarities)
-
-    # return {
-    #     "evaluation": evaluation,
-    #     "average_similarity": average_similarity,
-    #     "pass_rate": pass_rate,
-    #     "similarity_progress": similarities,
-    #     "pass_rate_progress": pr_progress,
-    #     "exit_code_progress": ec_progress,
-    # }
 
 
 def plot_progress(similarity_progress, pass_rate_progress):
     plt.figure(figsize=(10, 6))
-
-    # Plot similarity progress
     plt.plot(similarity_progress, label="Cosine Similarity Progress", color="blue")
-
-    # Plot pass rate progress
     plt.plot(pass_rate_progress, label="Pass Rate Progress", color="green")
-
     plt.xlabel("Attempt Number")
     plt.ylabel("Value")
     plt.title("Code Evaluation Progress Over Attempts")
@@ -225,7 +231,8 @@ def plot_exit_code_stacked_bars(exit_code_progress):
                 # that leaves any attempts with a nonzero exit code as the failures
                 len(codes) - x,
             )
-            for codes in exit_code_progress  # list of attempt exit codes/task i,e [[1,0,0,1],[0,0]...]
+            for codes in exit_code_progress  # list of attempt exit codes per task i,e [[1,0,0,1],[0,0]...]
+            ##############################                                             task1^   task2^ ...
         ]
     )
     plt.figure(figsize=(10, 6))
@@ -248,14 +255,12 @@ def plot_exit_code_stacked_bars(exit_code_progress):
 
 
 def g(runs, subset):
-    # print(os.getcwd())
     tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
     model = td(AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2"))
 
     mlbench = load_from_disk(os.path.join(root_dir, "MLBench/datasets"))
     # mlbench = load_from_disk("./datasets")
     # root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    # print(f"Root dir: {root_dir}")
 
     runs = load_tasks(runs)
     tested_runs = mlbench[subset]
@@ -268,7 +273,6 @@ def g(runs, subset):
     # )
     # plot_exit_code_distribution(evaluation_results["exit_code_progress"])
 
-    # print(f"Average similarity: {average_similarity}, Similarities: {similarities}")
     return evaluation_results
     # return value, similarities
 
@@ -280,6 +284,7 @@ def process_file(args):
 
 if __name__ == "__main__":
     # Cuda mp requires spawn and not fork
+    # NOTE: This code does not function correctly, it is under development.
     mp.set_start_method("spawn", force=True)
 
     input_files = [
