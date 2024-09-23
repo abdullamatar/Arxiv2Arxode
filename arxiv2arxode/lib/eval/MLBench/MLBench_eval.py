@@ -210,19 +210,8 @@ def evaluate_generated_code(
     )
 
 
-def plot_progress(similarity_progress, pass_rate_progress):
-    plt.figure(figsize=(10, 6))
-    plt.plot(similarity_progress, label="Cosine Similarity Progress", color="blue")
-    plt.plot(pass_rate_progress, label="Pass Rate Progress", color="green")
-    plt.xlabel("Attempt Number")
-    plt.ylabel("Value")
-    plt.title("Code Evaluation Progress Over Attempts")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-
 def plot_exit_code_stacked_bars(exit_code_progress):
+    # unused function but the zip is cool...
     success, failure = zip(
         *[
             (
@@ -284,7 +273,8 @@ def process_file(args):
 
 if __name__ == "__main__":
     # Cuda mp requires spawn and not fork
-    # NOTE: This code does not function correctly, it is under development.
+    # NOTE: THIS CODE DOES NOT FUNCTION CORRECTLY, IT IS UNDER DEVELOPMENT.
+    # The placeholder function g() above was used in notebooks not yet published to the repo.
     mp.set_start_method("spawn", force=True)
 
     input_files = [

@@ -12,14 +12,13 @@ import aiofiles
 import autogen
 # ray
 import ray
+# A2A
+from agents.agent import EmbeddingRetrieverAgent, GCManager, marl
+from agents.agent_conf import gcconf
 from autogen import ConversableAgent, GroupChat, gather_usage_summary
 # hf
 from datasets import load_from_disk
 from filelock import FileLock
-
-# A2A
-from agents.agent import EmbeddingRetrieverAgent, GCManager, marl
-from agents.agent_conf import gcconf
 
 # import multiprocessing as mp
 
@@ -275,7 +274,7 @@ class AsyncAgentHolder:
         # agents = marl()
         agents = marl(collection_name="MLBench_papers")
         prompt = (
-            f"Here is some information from a readme related to the task at hand: "
+            f"Here is some information from a readme related to the task at hand:"
             f"use it as guidance and a starting point. You are operating within a JUPYTER "
             f"IPYKERNEL NOTEBOOK ENVIRONMENT:\n {entry['oracle']}\nTo prepare the execution "
             f"environment please run this command in the notebook: {entry['prefix_code']}\n"

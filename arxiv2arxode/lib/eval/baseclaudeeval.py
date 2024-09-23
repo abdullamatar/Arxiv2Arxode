@@ -18,13 +18,12 @@ if project_root not in sys.path:
 import anthropic
 # ray
 import ray
-# autogen
-from autogen import OpenAIWrapper
-
 from agents.agent import marl
 # a2a
 # from ...agents.agent import CodingAssistant
 from agents.agent_conf import base_cfg, base_claude_cfg
+# autogen
+from autogen import OpenAIWrapper
 from lib.embeddings import get_db_connection
 
 # import lib.eval.MLBench.MLBench_eval as mlb
@@ -115,7 +114,6 @@ def process_task(task_desc, fname):
         attempts = 0
         generated_content = ""
         # Change to anthropic
-
         while attempts < 5:
             system_message = (
                 "You are tasked with generating code based on research papers."
@@ -139,7 +137,7 @@ def process_task(task_desc, fname):
                 },
                 {
                     "role": "assistant",
-                    "content": f"Here is retrieved information related to the task:\n{formatted_context}".strip(),
+                    "content": f"Here is the retrieved information related to the task:\n{formatted_context}".strip(),
                 },
             ]
 

@@ -21,6 +21,7 @@
 2. Install poetry within the newly created conda environment:</br>
 `conda install poetry -y`
 3. From the root of the project, run `poetry install` to install project dependencies.
+4. Finally while still in the root of the directory run `pip install -e .` to install `arxiv2arxode` as an editable package.
 
 #### Environment Configuration
 

@@ -7,6 +7,10 @@ import secrets
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
+# A2A
+# import agents.agent_conf as agent_conf
+from agents.agent_conf import (base_cfg, base_claude_cfg, claude_config_list,
+                               retrieve_conf)
 # AutoGen
 from autogen import (Agent, AssistantAgent, ConversableAgent, GroupChatManager,
                      UserProxyAgent)
@@ -19,11 +23,6 @@ from autogen.coding import CodeBlock
 from autogen.coding.jupyter import DockerJupyterServer, JupyterCodeExecutor
 from autogen.coding.jupyter.base import (JupyterConnectable,
                                          JupyterConnectionInfo)
-
-# A2A
-# import agents.agent_conf as agent_conf
-from agents.agent_conf import (base_cfg, base_claude_cfg, claude_config_list,
-                               retrieve_conf)
 from lib.embeddings import get_db_connection, get_embedding_func
 
 # TODO: use built in logging https://microsoft.github.io/autogen/docs/notebooks/agentchat_logging

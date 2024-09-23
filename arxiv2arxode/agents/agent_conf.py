@@ -10,11 +10,11 @@ config_list = [
         "api_key": os.environ.get("OPENAI_APIKEY2"),
         # "temperature": 1.0,
     },
-    {
-        "model": "gpt-4-turbo",
-        "api_key": os.environ.get("OPENAI_APIKEY2"),
-        # "temperature": 1.0,
-    },
+    # {
+    #     "model": "gpt-4-turbo",
+    #     "api_key": os.environ.get("OPENAI_APIKEY2"),
+    #     # "temperature": 1.0,
+    # },
     # {
     #     "model": "gpt-4-1106-preview",
     #     "api_key": os.environ.get("OPENAI_APIKEY2"),

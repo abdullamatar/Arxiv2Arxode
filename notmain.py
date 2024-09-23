@@ -15,7 +15,6 @@ from langchain.chat_models import ChatOpenAI
 # from langchain.prompts import FewShotChatMessagePromptTemplate, PipelinePromptTemplate
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain.retrievers import MultiQueryRetriever
-
 from lib.embeddings import (create_embedding_collection, get_db_connection,
                             get_embedding_func, load_and_chunk_code)
 from utils.misc import clone_and_clean_repo, ftos
