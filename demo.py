@@ -3,8 +3,8 @@
 
 # # Computer Science Project Demonstration:
 # -----
-import lib.embeddings as emb
-import utils.arxiv.arxiv_search as axs
+import arxiv2arxode.lib.embeddings as emb
+import arxiv2arxode.utils.arxiv.arxiv_search as axs
 
 arx_srch = axs.ArxivScraper()
 papers = arx_srch.search_papers("Graph Neural Networks")
@@ -44,8 +44,8 @@ pgvec_connection.similarity_search("Graph attention network GAT", k=4)
 # - Some main functions to highlight:
 #     - `marl` initializes four agents in this case each with a unique role.
 
-from agents.agent import marl
-from agents.coordinator import Coordinator
+from arxiv2arxode.agents.agent import marl
+from arxiv2arxode.agents.coordinator import Coordinator
 
 crd = Coordinator(
     team_name="test",

@@ -1,24 +1,18 @@
-# STD LIB
 import asyncio
 import json
 import logging
 import os
-import signal
 from concurrent.futures import ProcessPoolExecutor
 from typing import List
 
-import aiofiles
-# autogen
 import autogen
-# ray
 import ray
-# A2A
-from agents.agent import EmbeddingRetrieverAgent, GCManager, marl
-from agents.agent_conf import gcconf
 from autogen import ConversableAgent, GroupChat, gather_usage_summary
-# hf
 from datasets import load_from_disk
 from filelock import FileLock
+
+from arxiv2arxode.agents.agent import EmbeddingRetrieverAgent, GCManager, marl
+from arxiv2arxode.agents.agent_conf import gcconf
 
 # import multiprocessing as mp
 
@@ -31,9 +25,10 @@ logger = logging.getLogger("coordinator")
 logging.getLogger("requests").propagate = False
 logging.getLogger("urllib3").propagate = False
 
-root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-
+# TODO: Fix async logging, thats some sh*t I DO NOT know about.
 logging.basicConfig(
     level=logging.INFO,
     # Get the root directory of the project
@@ -50,7 +45,6 @@ class Coordinator:
         agents: List[autogen.ConversableAgent],
     ):
         self.agents = agents
-        self.messages = []
 
     def _reset_agents(self, agents: List[ConversableAgent]) -> None:
         [agent.reset() for agent in agents]

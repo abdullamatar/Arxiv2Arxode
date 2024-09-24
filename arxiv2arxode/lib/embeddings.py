@@ -2,8 +2,6 @@
 import os
 from typing import List, Optional
 
-# from functools import cached_property
-from dotenv import load_dotenv
 # Langchain
 from langchain.document_loaders import DirectoryLoader, PyPDFLoader
 from langchain.document_loaders.python import PythonLoader
@@ -14,7 +12,11 @@ from langchain.text_splitter import Language, RecursiveCharacterTextSplitter
 from langchain.vectorstores.pgvector import PGVector
 from langchain_openai import OpenAIEmbeddings
 
-load_dotenv()
+# from functools import cached_property
+# from dotenv import load_dotenv
+
+
+# load_dotenv()
 openaikey = os.environ.get("OPENAI_APIKEY")
 
 CONNECTION_STRING = PGVector.connection_string_from_db_params(

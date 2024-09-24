@@ -7,10 +7,6 @@ import secrets
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
-# A2A
-# import agents.agent_conf as agent_conf
-from agents.agent_conf import (base_cfg, base_claude_cfg, claude_config_list,
-                               retrieve_conf)
 # AutoGen
 from autogen import (Agent, AssistantAgent, ConversableAgent, GroupChatManager,
                      UserProxyAgent)
@@ -23,14 +19,19 @@ from autogen.coding import CodeBlock
 from autogen.coding.jupyter import DockerJupyterServer, JupyterCodeExecutor
 from autogen.coding.jupyter.base import (JupyterConnectable,
                                          JupyterConnectionInfo)
-from lib.embeddings import get_db_connection, get_embedding_func
+
+# A2A
+# import agents.agent_conf as agent_conf
+from arxiv2arxode.agents.agent_conf import (base_cfg, base_claude_cfg,
+                                            claude_config_list, retrieve_conf)
+from arxiv2arxode.lib.embeddings import get_db_connection, get_embedding_func
 
 # TODO: use built in logging https://microsoft.github.io/autogen/docs/notebooks/agentchat_logging
 logger = logging.getLogger("agents")
 logging.getLogger("requests").propagate = False
 logging.getLogger("urllib3").propagate = False
 
-root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 os.makedirs(os.path.join(root_dir, "logs"), exist_ok=True)
 
@@ -149,7 +150,7 @@ class EmbeddingRetrieverAgent(RetrieveUserProxyAgent):
         # return results
 
     # NOTE: This is taken directly from the RetrieveUserProxyAgent class from autogen and is used as a hacky workaround to abide by the token limit of the GPT-3 family of models, it is commented out when using gpt4+.
-
+    # NOTE: The autogen package has been updated and I am unsure if the below code will work as intended. This is meant for the retriever class above.
     # def _get_context(self, results: Dict[str, List[str] | List[List[str]]]):
     #     doc_contents = ""
     #     current_tokens = 0
@@ -302,45 +303,6 @@ class CodingAssistant(AssistantAgent):
     def __del__(self):
         # NOTE: Is this redundant given  atexit function registered above in CustomDockerJupyterServer?
         self.executor.stop()
-
-        # with DockerJupyterServer() as docker_server:
-        #     executor = JupyterCodeExecutor(docker_server)
-
-        #     for _, code in code_blocks:
-        #         # self.install_missing_dependencies(executor, code)
-
-        #         result = executor.execute_code_blocks(
-        #             code_blocks=[CodeBlock(language="python", code=code)]
-        #         )
-        #         execution_feedback.append(
-        #             {"code": code, "exit_code": result.exit_code, "logs": result.output}
-        #         )
-
-        # return execution_feedback
-
-    # def install_missing_dependencies(self, executor: JupyterCodeExecutor, code: str):
-    #     required_packages = self.detect_required_packages(code)
-
-    #     packages_to_install = [
-    #         pkg for pkg in required_packages if pkg not in self.installed_packages
-    #     ]
-
-    #     if packages_to_install:
-    #         executor.execute_code_blocks(
-    #             code_blocks=[
-    #                 CodeBlock(
-    #                     language="bash",
-    #                     code=f"pip install {' '.join(packages_to_install)}",
-    #                 )
-    #             ]
-    #         )
-    #         self.installed_packages.update(packages_to_install)
-
-    # def detect_required_packages(self, code: str) -> List[str]:
-    #     matches = re.findall(r"import (\w+)", code) + re.findall(
-    #         r"from (\w+) import", code
-    #     )
-    #     return matches
 
 
 class GCManager(GroupChatManager):

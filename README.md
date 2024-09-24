@@ -12,16 +12,17 @@
 #### Prerequisites:
 - [Anaconda](https://docs.anaconda.com/free/anaconda/install/) is preferred for environment and dependency management.
 - Having [Docker](https://docs.docker.com/get-docker/) installed is also required for running the vector database.
-- Optionally have jupyter notebook and the IPython kernel installed to run the [demo.ipynb](./demo.ipynb) file for interactive use.
-    - Within the below created conda env run `conda install anaconda::ipykernel anaconda::jupyter -y`
+- Optionally have jupyter notebook and the IPython kernel installed to run the [demo.ipynb](./notebooks/demo.ipynb) file for interactive use.
+- Within the below created conda env run `conda install anaconda::ipykernel anaconda::jupyter -y`
 
 ----
 1. Create a new conda environment with python 3.11 and activate it:</br>
 `conda create -n testenv python=3.11 && conda activate testenv`
 2. Install poetry within the newly created conda environment:</br>
 `conda install poetry -y`
-3. From the root of the project, run `poetry install` to install project dependencies.
-4. Finally while still in the root of the directory run `pip install -e .` to install `arxiv2arxode` as an editable package.
+3. ~~From the root of the project, run `poetry install` to install project dependencies.~~
+4. While still in the root of the directory run `pip install -e .` to install `arxiv2arxode` as an editable package.
+    - This has not been tested, but I believe that running `poetry install` would no longer be required if this step is taken.
 
 #### Environment Configuration
 
