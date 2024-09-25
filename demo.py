@@ -11,7 +11,7 @@ papers = arx_srch.search_papers("Graph Neural Networks")
 
 
 print(
-    f"type of papers: {type(papers[0])}\navailable attributes for scraper: {dir(arx_srch)[-2:]}"
+    f"type of papers: {type(papers[0])}\navailable methods for scraper: {dir(arx_srch)[-2:]}"
 )
 print(f"len of paper: {len(papers)}")
 papers[0]
