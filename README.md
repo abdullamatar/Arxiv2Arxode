@@ -4,7 +4,7 @@
 
 ----------
 ## Known Issues
-- Failure to stop and remove docker containers after execution, you will find that there will be a lot (emphasis on a lot) of "zombie" containers that are running in the background eating up your memory. This ***can*** be fixed by running `docker stop $(docker ps -a -q)` and `docker rm $(docker ps -a -q)`. This does not work too well if you have other containers running that you want to keep, however, I must provide a solution to my contrived problem 💀.
+- Failure to stop and remove docker containers after execution, you will find that there will be a lot (emphasis on a lot) of "zombie" containers that are running in the background eating up your memory. This ***can*** be fixed by running `docker stop $(docker ps -a -q)` and `docker rm $(docker ps -a -q)`. This does not work too well if you have other containers running that you want to keep, however, I must provide a solution to my contrived problem.
 
 - If using the GPT3 family of models one can run into token limit issues, there is a hacky fix under the retrieval agent's `_get_context` function, it is commented out when using GPT4.
 ## Installation
